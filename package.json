@@ -1,0 +1,22 @@
+{
+  "name": "content-calendar-system",
+  "private": true,
+  "version": "1.0.0",
+  "description": "FBS multi-client social media content calendar",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,magenta \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w client",
+    "db:migrate": "npm run db:migrate -w server",
+    "db:seed": "npm run db:seed -w server",
+    "db:studio": "npm run db:studio -w server",
+    "import": "npm run import -w server --",
+    "test": "npm test -w server && npm test -w client"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

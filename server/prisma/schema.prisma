@@ -1,0 +1,214 @@
+// FBS Content Calendar — database schema
+// Supabase: DATABASE_URL = pooled (port 6543, ?pgbouncer=true), DIRECT_URL = direct (port 5432, used by migrations)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  CLIENT
+}
+
+enum PostKind {
+  ORGANIC
+  AD
+}
+
+// Mirrors the STATUS dropdown used in the FBS workbook (+ IDEA for the idea bank)
+enum PostStatus {
+  IDEA
+  IN_PROGRESS
+  CREATED
+  EDITED
+  TO_EDIT
+  FOR_APPROVAL
+  APPROVED
+  REJECTED
+  ON_HOLD
+  RESCHEDULE
+  SCHEDULED
+  PUBLISHED
+  BOOSTED
+}
+
+// Mirrors the PLATFORMS dropdown (platform + format placements)
+enum Placement {
+  FB_POST
+  IG_POST
+  LINKEDIN_POST
+  FB_REELS
+  IG_REELS
+  YT_SHORTS
+  YT_CLIPS
+  YT_VIDEO
+  TIKTOK
+  STORY
+}
+
+enum Boost {
+  ORGANIC
+  PAID
+  BOOSTED
+}
+
+enum Feedback {
+  EXCELLENT
+  GOOD
+  BAD
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(CLIENT)
+  clientId     String?
+  client       Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  approvals  Post[]        @relation("PostApprover")
+  assigned   Post[]        @relation("PostAssignee")
+  created    Post[]        @relation("PostCreator")
+  comments   Comment[]
+  activities ActivityLog[]
+}
+
+model Client {
+  id         String   @id @default(cuid())
+  name       String
+  slug       String   @unique
+  brandColor String   @default("#2563eb")
+  logoUrl    String?
+  industry   String?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  users   User[]
+  pillars Pillar[]
+  themes  MonthlyTheme[]
+  posts   Post[]
+}
+
+// A content pillar / category (the colored "KEY:" legend of the old sheet)
+model Pillar {
+  id        String  @id @default(cuid())
+  clientId  String
+  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String
+  color     String  @default("#64748b")
+  weekday   Int? // 0=Sunday .. 6=Saturday — the weekday slot (e.g. Motivational Monday)
+  sortOrder Int     @default(0)
+  active    Boolean @default(true)
+  posts     Post[]
+
+  @@unique([clientId, name])
+}
+
+model MonthlyTheme {
+  id          String  @id @default(cuid())
+  clientId    String
+  client      Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  year        Int
+  month       Int // 1..12
+  title       String
+  weeklyFocus Json? // [{ week: 1, focus: "Local SEO | Keywords Guide" }, ...]
+  notes       String?
+
+  @@unique([clientId, year, month])
+}
+
+model Post {
+  id       String     @id @default(cuid())
+  clientId String
+  client   Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  pillarId String?
+  pillar   Pillar?    @relation(fields: [pillarId], references: [id], onDelete: SetNull)
+  kind     PostKind   @default(ORGANIC)
+  date     DateTime?  @db.Date // null = undated idea in the Idea Bank
+  time     String? // "HH:mm"
+  title    String
+  status   PostStatus @default(IN_PROGRESS)
+
+  placements   Placement[]
+  format       String? // Graphic, Carousel, Infographic, Short Video, ...
+  storyboard   String?
+  graphicsIdea String?
+  titleDraft   String?
+  caption      String?
+  hashtags     String?
+  pubmatLinks  String[]
+  referenceLink String?
+  remarks      String?
+  boost        Boost       @default(ORGANIC)
+
+  approverId   String?
+  approver     User?   @relation("PostApprover", fields: [approverId], references: [id], onDelete: SetNull)
+  approverName String? // approver name from an imported sheet when no matching user exists yet
+  assigneeId String?
+  assignee   User?   @relation("PostAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  // performance metrics (filled after publishing)
+  reacts     Int?
+  comments   Int?
+  shares     Int?
+  reach      Int?
+  engagement Int?
+  linkClicks Int?
+  feedback   Feedback?
+
+  // Idea bank: the person adding an idea can ask the team to look at it (cleared when someone picks it up)
+  needsAttention Boolean @default(false)
+  archivedAt     DateTime? // set = archived: hidden from calendars and dashboards, can be restored
+
+  adDetails    Json? // { primaryText, headline, description, cta, adSets: [...], botcakeMessage }
+  importSource String? // "<sheet>!r<row>" — makes re-imports idempotent
+
+  createdById String?
+  createdBy   User?    @relation("PostCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  commentList Comment[]
+  activities  ActivityLog[]
+
+  @@unique([clientId, importSource])
+  @@index([clientId, date])
+  @@index([clientId, status])
+  @@index([clientId, archivedAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String // CREATED | UPDATED | STATUS_CHANGED | SUBMITTED | APPROVED | CHANGES_REQUESTED | REJECTED | IMPORTED | COMMENTED
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+}
