@@ -16,6 +16,7 @@ import PillarsPage from './pages/admin/PillarsPage';
 import UsersPage from './pages/admin/UsersPage';
 import ImportPage from './pages/admin/ImportPage';
 import AccountPage from './pages/AccountPage';
+import DriveLinksPage from './pages/DriveLinksPage';
 
 function Protected({ children, admin = false }) {
   const { user, loading } = useAuth();
@@ -64,6 +65,7 @@ export default function App() {
         <Route index element={<Home />} />
         <Route path="c/:slug" element={<ClientDashboard />} />
         <Route path="c/:slug/results" element={<ClientResults />} />
+        <Route path="c/:slug/drive" element={<DriveLinksPage />} />
         <Route path="overview" element={<ClientOnly><ClientOverview /></ClientOnly>} />
         <Route path="approvals" element={<ClientOnly><ClientApprovals /></ClientOnly>} />
         <Route path="results" element={<ClientOnly><ClientResults /></ClientOnly>} />

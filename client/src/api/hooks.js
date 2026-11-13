@@ -71,6 +71,14 @@ export const useOverview = (options = {}) =>
 export const useNotifications = () =>
   useQuery({ queryKey: ['notifications'], refetchInterval: 60000, queryFn: async () => (await api.get('/dashboard/notifications')).data.assigned });
 
+// a client's shared Google Drive folders / files
+export const useDriveLinks = (clientId) =>
+  useQuery({
+    queryKey: ['driveLinks', clientId],
+    enabled: Boolean(clientId),
+    queryFn: async () => (await api.get('/drive-links', { params: { clientId } })).data.links,
+  });
+
 // ---------- mutations ----------
 
 function useInvalidatePosts() {

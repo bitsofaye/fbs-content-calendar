@@ -98,6 +98,21 @@ model Client {
   pillars Pillar[]
   themes  MonthlyTheme[]
   posts   Post[]
+  driveLinks DriveLink[]
+}
+
+// A shared Google Drive folder / file of a client (pubmats, brand kit, photos…)
+model DriveLink {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  title     String
+  url       String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
 }
 
 // A content pillar / category (the colored "KEY:" legend of the old sheet)

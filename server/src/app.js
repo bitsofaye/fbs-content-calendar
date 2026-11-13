@@ -11,6 +11,7 @@ import themeRoutes from './routes/themes.js';
 import postRoutes from './routes/posts.js';
 import userRoutes from './routes/users.js';
 import dashboardRoutes from './routes/dashboard.js';
+import driveLinkRoutes from './routes/driveLinks.js';
 import importRoutes from './routes/import.js';
 
 export function createApp() {
@@ -39,6 +40,7 @@ export function createApp() {
   app.use('/api/users', requireAuth, userRoutes);
   app.use('/api/dashboard', requireAuth, dashboardRoutes);
   app.use('/api/import', requireAuth, importRoutes);
+  app.use('/api/drive-links', requireAuth, driveLinkRoutes);
 
   app.use('/api', notFoundHandler);
   app.use(errorHandler);

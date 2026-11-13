@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Copy, ExternalLink, MessageSquare, RotateCcw, Send, Trash2, X, XCircle } from 'lucide-react';
+import { Check, Copy, ExternalLink, FolderOpen, MessageSquare, RotateCcw, Send, Trash2, X, XCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
   useAddComment, useCreatePost, useDeletePost, useDuplicatePost, usePost, useSubmitPost, useUpdatePost, useUserOptions,
@@ -8,6 +8,7 @@ import { BOOSTS, FEEDBACK, FORMATS, PLACEMENTS, STATUSES, STATUS } from '../lib/
 import { formatDate, formatDateTime } from '../lib/dates';
 import { PillarTag, PlacementChips, Spinner, StatusBadge } from './ui';
 import MaterialPreview from './MaterialPreview';
+import DrivePicker from './DrivePicker';
 import { useStatusChange } from './StatusChange';
 import { canReviewPost, REVIEW_STATUSES, statusBlock } from '../lib/workflow';
 
@@ -221,6 +222,7 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated }
   const waitingOnOther = post?.status === 'FOR_APPROVAL' && !canReview;
   const hasApprover = Boolean(form.approverId || post?.approverName);
   const statusChange = useStatusChange();
+  const [driveOpen, setDriveOpen] = useState(false);
   // after the pop-up confirms, the post already has its new status: keep the form in step without marking it unsaved
   const onStatusDone = (s) => {
     setForm((f) => ({ ...f, status: s }));
@@ -247,7 +249,7 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated }
   // Esc closes (with the unsaved-changes check); Ctrl/⌘ + S saves
   useEffect(() => {
     const onKey = (e) => {
-      if (statusChange.open) return; // the pop-up handles its own keys
+      if (statusChange.open || driveOpen) return; // the pop-ups handle their own keys
       if (e.key === 'Escape') requestClose();
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's' && canEdit) {
         e.preventDefault();
@@ -301,6 +303,18 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated }
           </div>
         )}
         {statusChange.dialog}
+        <DrivePicker
+          open={driveOpen}
+          onClose={() => setDriveOpen(false)}
+          client={client}
+          isAdmin={isAdmin}
+          onAdd={(urls) =>
+            setForm((f) => {
+              const current = f.pubmatLinks.split('\n').map((s) => s.trim()).filter(Boolean);
+              return { ...f, pubmatLinks: [...current, ...urls.filter((u) => !current.includes(u))].join('\n') };
+            })
+          }
+        />
 
         <nav className="flex gap-1 border-b border-slate-200 px-4">
           {tabs.map(([id, label]) => (
@@ -450,10 +464,18 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated }
                   <Field label="Hashtags">
                     {readOnly ? <ReadValue value={form.hashtags} /> : <input className="input" value={form.hashtags || ''} onChange={set('hashtags')} placeholder="#FrontlineBusinessSolutions #…" />}
                   </Field>
-                  <Field label="Pubmat links (one per line)">
+                  <div>
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="label mb-0">Pubmat links (one per line)</span>
+                      {!readOnly && (
+                        <button type="button" className="btn-secondary px-2.5 py-1 text-xs" onClick={() => setDriveOpen(true)}>
+                          <FolderOpen className="h-3.5 w-3.5" /> Add from Drive
+                        </button>
+                      )}
+                    </div>
                     {readOnly ? <Links links={post?.pubmatLinks} /> : <textarea className="input font-mono text-xs" rows={3} value={form.pubmatLinks} onChange={set('pubmatLinks')} placeholder="https://drive.google.com/…  or  https://www.canva.com/…" />}
                     {!readOnly && <p className="mt-1 text-[11px] text-slate-500">Pictures, videos, Google Drive files, Canva designs and YouTube links show a preview below. Share the file as “Anyone with the link” so everyone can see it.</p>}
-                  </Field>
+                  </div>
                   <MaterialPreview links={form.pubmatLinks} />
                   <Field label="Reference link (original source)">
                     {readOnly ? <Links links={form.referenceLink ? [form.referenceLink] : []} /> : <input className="input" value={form.referenceLink || ''} onChange={set('referenceLink')} placeholder="https://…" />}

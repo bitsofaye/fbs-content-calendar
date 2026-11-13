@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import {
-  ArrowLeft, BarChart3, Bell, CalendarDays, Inbox, CheckSquare, ChevronDown, ChevronRight, ChevronsUpDown, Columns3, FileSpreadsheet, LayoutDashboard, Lightbulb, LogOut, Menu, Rows3, Search, Settings2, Table2, Tags,
+  ArrowLeft, BarChart3, Bell, CalendarDays, Inbox, CheckSquare, ChevronDown, ChevronRight, ChevronsUpDown, Columns3, FileSpreadsheet, FolderOpen, LayoutDashboard, Lightbulb, LogOut, Menu, Rows3, Search, Settings2, Table2, Tags,
   UserCircle, Users, X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -39,7 +39,7 @@ function ViewLink({ slug, view, icon: Icon, children }) {
   );
 }
 
-// The ways to look at one calendar — shared by the FBS team (any client) and client logins (their own)
+// The buttons of one calendar — shared by the FBS team (any client) and client logins (their own)
 function CalendarLinks({ slug, showBoard, ideaAlerts = 0 }) {
   return (
     <div className="space-y-0.5">
@@ -54,11 +54,61 @@ function CalendarLinks({ slug, showBoard, ideaAlerts = 0 }) {
       <NavLink to={`/c/${slug}/results`} className={navCls}>
         <BarChart3 className="h-4 w-4" /> Results
       </NavLink>
+      <NavLink to={`/c/${slug}/drive`} className={navCls}>
+        <FolderOpen className="h-4 w-4" /> Drive links
+      </NavLink>
     </div>
   );
 }
 
-// FBS team: their own calendar first, then every client's, plus the agency-wide pages
+// Inside a calendar: the client's name pinned on top, and only that calendar's buttons.
+// The Dashboard link (or the Dashboard icon in the top bar) brings back the full menu.
+function CalendarNav({ slug, isAdmin, clients, user, onNavigate }) {
+  const { data: overview } = useOverview({ enabled: isAdmin });
+  const client = isAdmin ? clients.find((c) => c.slug === slug) : user?.client;
+  const name = client?.name || (isAdmin ? '…' : '');
+  const ideaAlerts = isAdmin && client ? (overview?.ideasNeedingAttention || []).filter((p) => p.client.id === client.id).length : 0;
+  const switcher = (e) => {
+    e.stopPropagation();
+    onNavigate?.();
+    openClientSwitcher();
+  };
+  return (
+    <>
+      <Link
+        to={isAdmin ? '/admin' : '/overview'}
+        className="flex items-center gap-2 rounded-md px-2.5 py-1 text-xs font-medium text-slate-500 hover:bg-brand-50 hover:text-brand-700"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" /> Dashboard &amp; menu
+      </Link>
+      <div>
+        <div className={sectionCls}>{isAdmin ? 'Calendar' : 'My calendar'}</div>
+        {isAdmin ? (
+          <button
+            onClick={switcher}
+            className="mb-1.5 flex w-full cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2.5 text-left hover:bg-slate-100"
+            title={`Switch calendar (${isMac ? '⌘' : 'Ctrl'} K)`}
+          >
+            <ClientDot color={client?.brandColor || '#cbd5e1'} />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm leading-snug font-semibold break-words text-slate-800">{name}</span>
+              <span className="block text-[11px] text-slate-500">{client?.slug === 'fbs' ? 'Our own calendar' : client?.industry || 'Client'}</span>
+            </span>
+            <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-500" />
+          </button>
+        ) : (
+          <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2.5">
+            <ClientDot color={client?.brandColor || '#cbd5e1'} />
+            <span className="min-w-0 text-sm leading-snug font-semibold break-words text-slate-800">{name}</span>
+          </div>
+        )}
+        <CalendarLinks slug={slug} showBoard={isAdmin} ideaAlerts={ideaAlerts} />
+      </div>
+    </>
+  );
+}
+
+// FBS team, outside a calendar: the agency-wide pages and the list of calendars to open
 function AdminNav({ user, clients, onNavigate }) {
   const { data: overview } = useOverview();
   const { pins } = usePins(user?.id);
@@ -84,31 +134,15 @@ function AdminNav({ user, clients, onNavigate }) {
       </div>
 
       <div>
-        <div className={sectionCls}>Content calendar</div>
-        {workspace ? (
-          <>
-            <button
-              onClick={switcher}
-              className="mb-1 flex w-full cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-left hover:bg-slate-100"
-              title={`Switch calendar (${isMac ? '⌘' : 'Ctrl'} K)`}
-            >
-              <ClientDot color={workspace.brandColor} />
-              <span className="min-w-0 flex-1">
-                <span className="block text-[13px] leading-snug font-medium break-words text-slate-800">{workspace.name}</span>
-                <span className="block text-[11px] text-slate-500">{workspace.slug === 'fbs' ? 'Our own calendar' : workspace.industry || 'Client'}</span>
-              </span>
-              <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-500" />
-            </button>
-            <CalendarLinks slug={workspace.slug} showBoard ideaAlerts={(overview?.ideasNeedingAttention || []).filter((p) => p.client.id === workspace.id).length} />
-          </>
-        ) : (
-          <p className="px-2.5 py-1 text-xs text-slate-500">Add a client to start a calendar.</p>
-        )}
-      </div>
-
-      <div>
-        <div className={sectionCls}>Clients</div>
+        <div className={sectionCls}>Calendars</div>
         <div className="space-y-0.5">
+          {workspace && (
+            <NavLink to={`/c/${workspace.slug}`} className={navCls}>
+              <ClientDot color={workspace.brandColor} />
+              <span className="min-w-0 flex-1 text-[13px] leading-snug break-words">{workspace.name}</span>
+              {workspace.slug === 'fbs' && <span className="text-[10px] text-slate-400">ours</span>}
+            </NavLink>
+          )}
           {pinned.map((c) => (
             <NavLink key={c.id} to={`/c/${c.slug}`} className={navCls}>
               <ClientDot color={c.brandColor} />
@@ -145,10 +179,10 @@ function AdminNav({ user, clients, onNavigate }) {
   );
 }
 
-// Client login: their own overview and approvals, then the ways to look at their content
-function ClientNav({ slug, clientId }) {
+// Client login, outside the calendar: their overview and approvals, and the way into their calendar
+function ClientNav({ client, clientId }) {
   const { data: waiting = [] } = usePosts({ clientId, status: 'FOR_APPROVAL', limit: 300 });
-  if (!slug) return null;
+  if (!client?.slug) return null;
   return (
     <>
       <div className="space-y-0.5">
@@ -161,8 +195,11 @@ function ClientNav({ slug, clientId }) {
         </NavLink>
       </div>
       <div>
-        <div className={sectionCls}>Content</div>
-        <CalendarLinks slug={slug} />
+        <div className={sectionCls}>My calendar</div>
+        <NavLink to={`/c/${client.slug}?view=daily`} className={navCls}>
+          <ClientDot color={client.brandColor} />
+          <span className="min-w-0 text-[13px] leading-snug break-words">{client.name}</span>
+        </NavLink>
       </div>
     </>
   );
@@ -171,6 +208,9 @@ function ClientNav({ slug, clientId }) {
 function Sidebar({ onNavigate }) {
   const { user, isAdmin, logout } = useAuth();
   const { data: clients = [] } = useClients();
+  // inside a calendar (/c/slug…) the sidebar shows only that calendar's buttons
+  const { pathname } = useLocation();
+  const calendarSlug = pathname.startsWith('/c/') ? pathname.split('/')[2] : null;
 
   return (
     <div className="flex h-full flex-col border-r border-slate-200/80 bg-white text-slate-700">
@@ -185,7 +225,13 @@ function Sidebar({ onNavigate }) {
       </div>
 
       <nav className="sidebar-scroll flex-1 space-y-4 overflow-y-auto px-3 py-3" onClick={onNavigate}>
-        {isAdmin ? <AdminNav user={user} clients={clients} onNavigate={onNavigate} /> : <ClientNav slug={user?.client?.slug} clientId={user?.clientId} />}
+        {calendarSlug ? (
+          <CalendarNav slug={calendarSlug} isAdmin={isAdmin} clients={clients} user={user} onNavigate={onNavigate} />
+        ) : isAdmin ? (
+          <AdminNav user={user} clients={clients} onNavigate={onNavigate} />
+        ) : (
+          <ClientNav client={user?.client} clientId={user?.clientId} />
+        )}
       </nav>
 
       <div className="border-t border-slate-100 px-3 py-2">
@@ -224,7 +270,7 @@ function useTrail(clients, dashboardPath) {
     const [, , slug, sub] = pathname.split('/');
     const c = clients.find((x) => x.slug === slug);
     const view = new URLSearchParams(search).get('view') || 'calendar';
-    return [{ label: c?.name || 'Calendar', to: `/c/${slug}` }, { label: sub === 'results' ? 'Results' : VIEW_LABEL[view] || 'Calendar' }];
+    return [{ label: c?.name || 'Calendar', to: `/c/${slug}` }, { label: sub === 'results' ? 'Results' : sub === 'drive' ? 'Drive links' : VIEW_LABEL[view] || 'Calendar' }];
   }
   return (ADMIN_PAGES[pathname] || []).map((label) => ({ label }));
 }
