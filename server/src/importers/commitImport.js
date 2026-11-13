@@ -58,6 +58,7 @@ export async function commitImport(prisma, { clientId, posts, userId = null }) {
       clientId,
       kind: p.kind,
       date: p.date ? new Date(`${p.date}T00:00:00.000Z`) : null,
+      time: p.time || null,
       title: p.title,
       status: p.status,
       boost: p.boost || 'ORGANIC',

@@ -137,7 +137,7 @@ function AdminNav({ user, clients, onNavigate }) {
             <Users className="h-4 w-4" /> Users
           </NavLink>
           <NavLink to="/admin/import" className={navCls}>
-            <FileSpreadsheet className="h-4 w-4" /> Import workbook
+            <FileSpreadsheet className="h-4 w-4" /> Import CSV
           </NavLink>
         </div>
       </div>
@@ -210,7 +210,7 @@ const ADMIN_PAGES = {
   '/admin/clients': ['Manage', 'Clients'],
   '/admin/pillars': ['Manage', 'Pillars & themes'],
   '/admin/users': ['Manage', 'Users'],
-  '/admin/import': ['Manage', 'Import workbook'],
+  '/admin/import': ['Manage', 'Import CSV'],
   '/account': ['My account'],
   '/approvals': ['Approvals'],
   '/results': ['Results'],
