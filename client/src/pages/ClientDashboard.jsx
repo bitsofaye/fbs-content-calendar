@@ -85,7 +85,7 @@ export default function ClientDashboard() {
   }, [view, calMode, day, month, bounds.from, bounds.to]);
 
   const needsDated = view !== 'ideas';
-  const needsIdeas = ['ideas', 'board', 'calendar'].includes(view);
+  const needsIdeas = view === 'ideas';
   const postsQ = usePosts({ clientId: client?.id, ...range, ...filters }, { enabled: needsDated });
   const ideasQ = usePosts({ clientId: client?.id, undated: 'true', ...filters, status: undefined }, { enabled: needsIdeas });
   const dash = useClientDashboard(client?.id, { from: bounds.from, to: bounds.to });
@@ -126,21 +126,21 @@ export default function ClientDashboard() {
     <div className="flex min-h-full flex-col">
       {/* header */}
       <div className="border-b border-slate-200 bg-white">
-        <div className="h-1" style={{ background: client.brandColor }} />
+        <div className="h-1.5" style={{ background: client.brandColor }} />
         {/* three parts: client on the left, the month truly centred, actions on the right */}
         <div className="grid grid-cols-1 items-center gap-3 px-4 py-3 sm:grid-cols-[1fr_auto_1fr] sm:px-6">
           <div className="flex min-w-0 items-center gap-1">
             {isAdmin ? (
               <button className="group flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-left hover:bg-slate-50" onClick={openClientSwitcher} title="Switch client (Ctrl K)">
                 <span className="min-w-0">
-                  <span className="block truncate text-2xl font-semibold tracking-tight text-brand-700">{client.name}</span>
+                  <span className="block text-lg leading-tight font-semibold tracking-tight break-words text-brand-700 sm:text-xl">{client.name}</span>
                   <span className="block text-xs text-slate-500">{client.industry || 'Content calendar'}</span>
                 </span>
                 <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-500 group-hover:text-brand-600" />
               </button>
             ) : (
               <div className="min-w-0">
-                <h1 className="truncate text-2xl font-semibold tracking-tight text-brand-700">{client.name}</h1>
+                <h1 className="text-lg leading-tight font-semibold tracking-tight break-words text-brand-700 sm:text-xl">{client.name}</h1>
                 <p className="text-xs text-slate-500">{client.industry || 'Content calendar'}</p>
               </div>
             )}

@@ -39,7 +39,7 @@ export default function ClientApprovals() {
             <button
               key={t.id}
               onClick={() => setSp(t.id === 'waiting' ? {} : { tab: t.id }, { replace: true })}
-              className={`flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm ${tab.id === t.id ? 'bg-brand-600 font-medium text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+              className={`flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm ${tab.id === t.id ? 'bg-brand-700 font-medium text-white shadow-sm' : 'bg-brand-50 text-brand-700 hover:bg-brand-100'}`}
             >
               <t.icon className="h-4 w-4" /> {t.label}
               {n !== undefined && <span className={`rounded-full px-1.5 text-[11px] tabular-nums ${tab.id === t.id ? 'bg-white/20' : 'bg-slate-100 text-slate-600'}`}>{n}</span>}

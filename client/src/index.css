@@ -30,17 +30,21 @@
   src: url("/fonts/poppins-700.woff2") format("woff2");
 }
 
-/* FBS brand palette: Burgundy #630B3C, Magenta #921259, Pink #B1217A, White #FFFFFF */
+/* SOFT BURGUNDY THEME: white sidebar and cards on a light burgundy-tinted background.
+   FBS palette: Burgundy #630B3C, Magenta #921259, Pink #B1217A.
+   While a client's calendar is open, lib/theme.js swaps these shades for ones made from the client's colour. */
 @theme {
-  --color-brand-50: #faf6f8; /* soft: header rows, hovers */
-  --color-brand-100: #f6eaf1; /* tint: highlights, drop targets */
-  --color-brand-500: #b1217a; /* pink: focus, accents */
-  --color-brand-600: #921259; /* magenta: primary actions, today, active toggle */
-  --color-brand-700: #630b3c; /* burgundy: sidebar, headings, hover */
-  --color-brand-800: #4d0830; /* deep burgundy: sidebar shading */
+  --color-brand-50: #f8eef3; /* soft tint: hovers, unselected pills */
+  --color-brand-100: #f1dde8; /* tint: highlights, drop targets */
+  --color-brand-200: #e2bfd2; /* soft borders */
+  --color-brand-500: #b1217a; /* pink: focus, badges */
+  --color-brand-600: #921259; /* magenta: links, today, accents */
+  --color-brand-700: #630b3c; /* burgundy: headings, active menu item, selected tabs */
+  --color-brand-800: #4d0830; /* deep burgundy: button gradient */
+  --color-brand-900: #3a0624; /* darkest: line beside the active menu item */
   --color-accent: #b1217a;
 
-  /* neutrals tuned to the brand (replaces Tailwind's blue-gray slate) */
+  /* warm neutrals tuned to the brand */
   --color-slate-50: #faf6f8;
   --color-slate-100: #f3edf0;
   --color-slate-200: #ece4e8;
@@ -53,11 +57,11 @@
   --color-slate-900: #24161e;
   --color-slate-950: #170d13;
 
-  /* page canvas: a warm ivory-blush so white cards read as raised surfaces */
+  /* page background: very light, so white cards with soft shadows stand out */
   --color-canvas: #faf7f9;
 
-  --shadow-card: 0 1px 2px rgb(99 11 60 / 0.04), 0 6px 20px -10px rgb(99 11 60 / 0.14);
-  --shadow-lift: 0 2px 4px rgb(99 11 60 / 0.05), 0 14px 32px -12px rgb(99 11 60 / 0.22);
+  --shadow-card: 0 1px 2px rgb(60 10 36 / 0.04), 0 6px 18px -10px rgb(60 10 36 / 0.16);
+  --shadow-lift: 0 2px 4px rgb(60 10 36 / 0.05), 0 14px 30px -12px rgb(60 10 36 / 0.24);
   --font-sans: "Poppins", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
@@ -73,7 +77,7 @@ body {
 }
 
 ::selection {
-  background: rgb(177 33 122 / 0.18);
+  background: color-mix(in srgb, var(--color-brand-500) 22%, transparent);
 }
 
 /* shared controls (declared as utilities so they can be combined with @apply in Tailwind v4) */
@@ -87,7 +91,7 @@ body {
   @apply inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium whitespace-nowrap transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50;
 }
 @utility btn-primary {
-  @apply btn bg-brand-600 text-white shadow-[0_1px_2px_rgb(99_11_60/0.25),inset_0_1px_0_rgb(255_255_255/0.12)] hover:bg-brand-700 active:translate-y-px;
+  @apply btn bg-gradient-to-b from-brand-700 to-brand-800 text-white shadow-[0_6px_14px_-6px_var(--color-brand-800)] hover:from-brand-600 hover:to-brand-700 active:translate-y-px;
 }
 @utility btn-secondary {
   @apply btn border border-slate-200 bg-white text-slate-700 shadow-xs hover:border-slate-300 hover:bg-slate-50;
@@ -126,6 +130,6 @@ body {
 /* sidebar scroll area: the track blends into the burgundy sidebar,
    the scrollbar handle and its up/down arrows keep their usual light grey */
 @utility sidebar-scroll {
-  scrollbar-color: #c1c1c1 transparent;
+  scrollbar-color: var(--color-slate-300) transparent;
   scrollbar-width: auto;
 }

@@ -9,18 +9,19 @@ import { useClients, useOverview, usePosts } from '../api/hooks';
 import { openClientSwitcher, usePins } from '../lib/pins';
 import { useWorkspace } from '../lib/workspace';
 import ClientSwitcher from './ClientSwitcher';
+import { useBrandTheme } from '../lib/theme';
 
 const navCls = ({ isActive }) =>
-  `flex items-center gap-2.5 rounded-md px-2.5 py-[5px] text-sm transition-colors ${
-    isActive ? 'bg-white font-semibold text-brand-700' : 'text-white/80 hover:bg-white/10 hover:text-white'
+  `flex items-center gap-2.5 rounded-lg border-l-[3px] px-2.5 py-1.5 text-sm transition-colors ${
+    isActive ? 'border-brand-900 bg-brand-700 font-medium text-white shadow-sm' : 'border-transparent text-slate-600 hover:bg-brand-50 hover:text-brand-700'
   }`;
 
-const sectionCls = 'mb-1 px-2.5 text-[11px] font-semibold tracking-wide text-white/60 uppercase';
+const sectionCls = 'mb-1.5 px-2.5 text-[11px] font-medium tracking-[0.08em] text-slate-500 uppercase';
 const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform);
 
 function ClientDot({ color }) {
   return (
-    <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-white">
+    <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-slate-200">
       <span className="h-2 w-2 rounded-full" style={{ background: color }} />
     </span>
   );
@@ -88,20 +89,20 @@ function AdminNav({ user, clients, onNavigate }) {
           <>
             <button
               onClick={switcher}
-              className="mb-1 flex w-full cursor-pointer items-center gap-2 rounded-md border border-white/15 bg-white/5 px-2.5 py-2 text-left hover:bg-white/10"
+              className="mb-1 flex w-full cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-left hover:bg-slate-100"
               title={`Switch calendar (${isMac ? '⌘' : 'Ctrl'} K)`}
             >
               <ClientDot color={workspace.brandColor} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold text-white">{workspace.name}</span>
-                <span className="block text-[11px] text-white/60">{workspace.slug === 'fbs' ? 'Our own calendar' : workspace.industry || 'Client'}</span>
+                <span className="block text-[13px] leading-snug font-medium break-words text-slate-800">{workspace.name}</span>
+                <span className="block text-[11px] text-slate-500">{workspace.slug === 'fbs' ? 'Our own calendar' : workspace.industry || 'Client'}</span>
               </span>
-              <ChevronsUpDown className="h-4 w-4 shrink-0 text-white/60" />
+              <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-500" />
             </button>
             <CalendarLinks slug={workspace.slug} showBoard ideaAlerts={(overview?.ideasNeedingAttention || []).filter((p) => p.client.id === workspace.id).length} />
           </>
         ) : (
-          <p className="px-2.5 py-1 text-xs text-white/60">Add a client to start a calendar.</p>
+          <p className="px-2.5 py-1 text-xs text-slate-500">Add a client to start a calendar.</p>
         )}
       </div>
 
@@ -111,14 +112,14 @@ function AdminNav({ user, clients, onNavigate }) {
           {pinned.map((c) => (
             <NavLink key={c.id} to={`/c/${c.slug}`} className={navCls}>
               <ClientDot color={c.brandColor} />
-              <span className="truncate">{c.name}</span>
+              <span className="min-w-0 text-[13px] leading-snug break-words">{c.name}</span>
             </NavLink>
           ))}
-          {!pinned.length && <p className="px-2.5 py-1 text-xs leading-relaxed text-white/60">Pin clients with ☆ to keep them here.</p>}
-          <button onClick={switcher} className="mt-1 flex w-full cursor-pointer items-center gap-2.5 rounded-md border border-white/15 px-2.5 py-1.5 text-sm text-white/80 hover:bg-white/10 hover:text-white">
+          {!pinned.length && <p className="px-2.5 py-1 text-xs leading-relaxed text-slate-500">Pin clients with ☆ to keep them here.</p>}
+          <button onClick={switcher} className="mt-1 flex w-full cursor-pointer items-center gap-2.5 rounded-md border border-slate-200 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-800">
             <Search className="h-4 w-4" /> <span className="flex-1 text-left">All clients</span>
-            <span className="text-[10px] text-white/50">{clients.length}</span>
-            <kbd className="hidden rounded border border-white/20 px-1 text-[10px] text-white/60 lg:inline">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
+            <span className="text-[10px] text-slate-400">{clients.length}</span>
+            <kbd className="hidden rounded border border-slate-200 px-1 text-[10px] text-slate-500 lg:inline">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
           </button>
         </div>
       </div>
@@ -172,14 +173,14 @@ function Sidebar({ onNavigate }) {
   const { data: clients = [] } = useClients();
 
   return (
-    <div className="flex h-full flex-col bg-gradient-to-b from-brand-700 to-brand-800 text-white">
-      <div className="flex h-12 items-center gap-2.5 border-b border-white/10 px-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm">
-          <CalendarDays className="h-5 w-5 text-brand-700" />
+    <div className="flex h-full flex-col border-r border-slate-200/80 bg-white text-slate-700">
+      <div className="flex h-12 items-center gap-2.5 border-b border-slate-100 px-4">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 shadow-sm">
+          <CalendarDays className="h-5 w-5 text-white" />
         </div>
         <div className="leading-tight">
-          <div className="text-sm font-semibold tracking-tight text-white">Content Calendar</div>
-          <div className="text-[11px] text-white/70">Frontline Business Solutions</div>
+          <div className="text-sm font-semibold tracking-tight text-slate-800">Content Calendar</div>
+          <div className="text-[11px] text-slate-500">Frontline Business Solutions</div>
         </div>
       </div>
 
@@ -187,7 +188,7 @@ function Sidebar({ onNavigate }) {
         {isAdmin ? <AdminNav user={user} clients={clients} onNavigate={onNavigate} /> : <ClientNav slug={user?.client?.slug} clientId={user?.clientId} />}
       </nav>
 
-      <div className="border-t border-white/10 px-3 py-2">
+      <div className="border-t border-slate-100 px-3 py-2">
         <NavLink to="/account" className={navCls} onClick={onNavigate}>
           <UserCircle className="h-4 w-4" />
           <span className="min-w-0 flex-1">
@@ -195,7 +196,7 @@ function Sidebar({ onNavigate }) {
             <span className="block text-[11px] opacity-70">{isAdmin ? 'FBS team' : 'Client'}</span>
           </span>
         </NavLink>
-        <button onClick={logout} className="mt-1 flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm text-white/80 hover:bg-white/10 hover:text-white">
+        <button onClick={logout} className="mt-1 flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-800">
           <LogOut className="h-4 w-4" /> Sign out
         </button>
       </div>
@@ -397,10 +398,13 @@ function useScrollMemory(ref) {
 }
 
 export default function Layout() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const [open, setOpen] = useState(false);
   const [switcher, setSwitcher] = useState(false);
   const location = useLocation();
+
+  // a client's own login is shown in that client's colour; FBS accounts always use the FBS colours
+  useBrandTheme(isAdmin ? null : user?.client?.brandColor);
   const mainRef = useRef(null);
   useScrollMemory(mainRef);
 

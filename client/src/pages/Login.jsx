@@ -33,10 +33,10 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-full items-center justify-center bg-brand-700 p-4">
+    <div className="flex min-h-full items-center justify-center bg-gradient-to-br from-brand-50 via-canvas to-white p-4">
       <form onSubmit={onSubmit} className="card w-full max-w-sm p-6">
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-700">
             <CalendarDays className="h-6 w-6 text-white" />
           </div>
           <div>
@@ -67,7 +67,7 @@ export default function Login() {
           </button>
         </div>
         {error && <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{error}</p>}
-        <button className="btn-primary w-full py-2" disabled={busy}>
+        <button className="btn w-full bg-brand-700 py-2 text-white shadow-sm hover:bg-brand-800" disabled={busy}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
         <p className="mt-4 text-center text-xs text-slate-500">Forgot your password? Ask your FBS admin to set a new one for you.</p>

@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
-import { Lightbulb, MessageSquare, PanelRightClose, PanelRightOpen, Plus } from 'lucide-react';
+import { MessageSquare, Plus } from 'lucide-react';
 import { useBulkUpdate } from '../../api/hooks';
 import { WEEKDAYS } from '../../lib/constants';
 import { monthGrid, todayISO, weekday, weekOf } from '../../lib/dates';
@@ -102,25 +102,6 @@ function DayCell({ date, inMonth, posts, onOpen, onCreate, isAdmin, canCreate, t
   );
 }
 
-function IdeaPanel({ ideas, onOpen, isAdmin, onClose }) {
-  const { setNodeRef, isOver } = useDroppable({ id: '__ideas__', disabled: !isAdmin });
-  return (
-    <div ref={setNodeRef} className={`card flex w-64 shrink-0 flex-col ${isOver ? 'ring-2 ring-brand-500' : ''}`}>
-      <div className="flex items-center gap-2 border-b border-slate-200 px-3 py-2">
-        <Lightbulb className="h-4 w-4 text-amber-500" />
-        <span className="text-sm font-medium">Idea bank</span>
-        <span className="text-xs text-slate-500">{ideas.length}</span>
-        <button className="btn-ghost ml-auto p-1" onClick={onClose} title="Hide"><PanelRightClose className="h-4 w-4" /></button>
-      </div>
-      <p className="px-3 pt-2 text-[11px] text-slate-500">{isAdmin ? 'Drag an idea onto a day to schedule it. Drag a post here to unschedule it.' : 'Ideas not scheduled yet.'}</p>
-      <div className="flex max-h-[70vh] flex-col gap-1 overflow-y-auto p-2">
-        {ideas.map((p) => <PostChip key={p.id} post={p} onOpen={onOpen} draggable={isAdmin} compact />)}
-        {!ideas.length && <p className="px-1 py-4 text-center text-xs text-slate-500">No ideas yet</p>}
-      </div>
-    </div>
-  );
-}
-
 // Phones: a simple day-by-day list instead of a 7-column grid that needs sideways scrolling
 function Agenda({ weeks, month, mode, byDate, onOpen, onCreate, canCreate, weekdayPillars }) {
   const today = todayISO();
@@ -190,7 +171,6 @@ function Agenda({ weeks, month, mode, byDate, onOpen, onCreate, canCreate, weekd
 
 export default function CalendarView({ client, posts, ideas, month, day, isAdmin, canCreate, onOpen, onCreate, mode }) {
   const bulk = useBulkUpdate();
-  const [showIdeas, setShowIdeas] = useState(isAdmin);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const weeks = mode === 'week' ? [weekOf(day)] : monthGrid(month).weeks;
 
@@ -211,10 +191,6 @@ export default function CalendarView({ client, posts, ideas, month, day, isAdmin
   function onDragEnd({ active, over }) {
     if (!over) return;
     const post = active.data.current.post;
-    if (over.id === '__ideas__') {
-      if (post.date) bulk.mutate([{ id: post.id, data: { date: null, status: 'IDEA' } }]);
-      return;
-    }
     if (over.id === post.date) return;
     bulk.mutate([{ id: post.id, data: { date: over.id, ...(post.status === 'IDEA' ? { status: 'IN_PROGRESS' } : {}) } }]);
   }
@@ -272,15 +248,6 @@ export default function CalendarView({ client, posts, ideas, month, day, isAdmin
             ))}
           </div>
         </div>
-        {showIdeas ? (
-          <div className="hidden lg:block">
-            <IdeaPanel ideas={ideas} onOpen={onOpen} isAdmin={isAdmin} onClose={() => setShowIdeas(false)} />
-          </div>
-        ) : (
-          <button className="btn-secondary hidden px-2 lg:inline-flex" onClick={() => setShowIdeas(true)} title="Show idea bank">
-            <PanelRightOpen className="h-4 w-4" />
-          </button>
-        )}
       </div>
       {canCreate && (
         <p className="mt-2 text-xs text-slate-500">

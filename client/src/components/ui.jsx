@@ -126,21 +126,21 @@ const TONES = {
 export function KpiTile({ label, value, hint, icon: Icon, tone = 'slate', solid = false, to }) {
   const body = (
     <div
-      className={`card relative h-full overflow-hidden px-4 py-3.5 sm:px-5 sm:py-4 ${solid ? 'border-transparent! bg-gradient-to-br! from-brand-700 to-brand-600 text-white' : ''}`}
+      className={`card relative h-full overflow-hidden px-4 py-3.5 sm:px-5 sm:py-4 ${solid ? 'border-brand-200! bg-gradient-to-br! from-brand-100 to-white' : ''}`}
     >
-      {solid && <span aria-hidden className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-white/10" />}
+      {solid && <span aria-hidden className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-white/60" />}
       <div className="relative flex items-start justify-between gap-2">
-        <span className={`text-xs font-medium ${solid ? 'text-white/85' : 'text-slate-500'}`}>{label}</span>
+        <span className={`text-xs ${solid ? 'font-semibold' : 'font-medium'} text-brand-700`}>{label}</span>
         {Icon && (
-          <span className={`hidden h-8 w-8 shrink-0 items-center justify-center rounded-full sm:flex ${solid ? 'bg-white/15 text-white' : TONES[tone]}`}>
+          <span className={`hidden h-8 w-8 shrink-0 items-center justify-center rounded-full sm:flex ${solid ? 'bg-white text-brand-700 ring-1 ring-brand-200' : TONES[tone]}`}>
             <Icon className="h-4 w-4" />
           </span>
         )}
       </div>
-      <div className={`relative mt-1 text-2xl sm:-mt-1 leading-tight font-semibold sm:text-[28px] tracking-tight tabular-nums ${solid ? 'text-white' : 'text-slate-800'}`}>{value ?? '—'}</div>
-      <div className={`relative mt-0.5 flex items-center gap-1 text-xs ${solid ? 'text-white/80' : 'text-slate-500'}`}>
+      <div className={`relative mt-1 text-2xl sm:-mt-1 leading-tight font-semibold sm:text-[28px] tracking-tight tabular-nums text-brand-700`}>{value ?? '—'}</div>
+      <div className={`relative mt-0.5 flex items-center gap-1 text-xs text-brand-700`}>
         {hint && <span>{hint}</span>}
-        {to && <span className={`ml-auto hidden font-medium whitespace-nowrap sm:inline ${solid ? 'text-white' : 'text-brand-600'}`}>View →</span>}
+        {to && <span className={`ml-auto hidden font-medium whitespace-nowrap sm:inline text-brand-700`}>View →</span>}
       </div>
     </div>
   );

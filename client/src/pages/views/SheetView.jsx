@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Archive, ArchiveRestore, ArrowDown, ArrowUp, Check, ChevronDown, Download, ExternalLink, Loader2, Maximize2, Plus, Table2, Trash2, X } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowDown, ArrowUp, Check, ChevronDown, Download, ExternalLink, Loader2, Maximize2, Plus, RotateCcw, Table2, Trash2, X } from 'lucide-react';
 import { useBulkArchive, useBulkDelete, useBulkUpdate, useCreatePost, usePosts } from '../../api/hooks';
 import { FEEDBACK, PLACEMENT, PLACEMENTS, STATUS, STATUSES } from '../../lib/constants';
 import { formatDate, monthBounds, todayISO } from '../../lib/dates';
@@ -204,6 +204,47 @@ function PlacementCell({ value = [], onSave }) {
   );
 }
 
+// ---------- resizable columns and rows (remembered in this browser) ----------
+function useStored(key, initial) {
+  const [value, setValue] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(key)) || initial;
+    } catch {
+      return initial;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      /* private window: sizes just aren't remembered */
+    }
+  }, [key, value]);
+  return [value, setValue];
+}
+
+// Drag with the mouse (or finger); calls onMove with how far the pointer moved since the start.
+function startDrag(e, onMove) {
+  e.preventDefault();
+  e.stopPropagation();
+  const x0 = e.clientX;
+  const y0 = e.clientY;
+  const move = (ev) => onMove(ev.clientX - x0, ev.clientY - y0);
+  const up = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+  document.body.style.userSelect = 'none';
+}
+
+const MIN_COL = 60;
+const MAX_COL = 900;
+const MIN_ROW = 40;
+
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -218,6 +259,8 @@ export default function SheetView({ client, posts, month, isAdmin, onOpen, peopl
 
   // archived posts are hidden everywhere; admins can look at them here and restore them
   const [showArchived, setShowArchived] = useState(false);
+  const [colW, setColW] = useStored('cc.sheet.colWidths', {});
+  const [rowH, setRowH] = useStored('cc.sheet.rowHeights', {});
   const bounds = monthBounds(month);
   const archivedQ = usePosts({ clientId: client.id, from: bounds.from, to: bounds.to, archived: 'true' }, { enabled: isAdmin && showArchived });
   const source = showArchived ? archivedQ.data || [] : posts;
@@ -266,15 +309,38 @@ export default function SheetView({ client, posts, month, isAdmin, onOpen, peopl
   };
 
   const headCls = 'sticky top-0 z-10 border-b border-slate-200 bg-brand-50 px-2 py-2.5 text-left align-bottom text-xs font-semibold text-slate-600';
-  const SortHead = ({ k, children, className = '' }) => (
+  // grip on the right edge of a column header: drag to resize, double-click to reset
+  const ColGrip = ({ col }) =>
+    col ? (
+      <span
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize column"
+        title="Drag to resize · double-click to reset"
+        className="absolute top-0 -right-1 z-20 h-full w-2.5 cursor-col-resize touch-none select-none after:absolute after:top-1/4 after:left-1/2 after:h-1/2 after:w-0.5 after:-translate-x-1/2 after:rounded-full after:bg-slate-300 hover:after:bg-brand-500"
+        onPointerDown={(e) => {
+          const start = widthOf(col);
+          document.body.style.cursor = 'col-resize';
+          startDrag(e, (dx) => setColW((prev) => ({ ...prev, [col]: Math.round(Math.min(MAX_COL, Math.max(MIN_COL, start + dx))) })));
+        }}
+        onDoubleClick={() => setColW(({ [col]: _drop, ...rest }) => rest)}
+      />
+    ) : null;
+  const SortHead = ({ k, col = k, children, className = '' }) => (
     <th className={`${headCls} ${className}`}>
       <button className="inline-flex cursor-pointer items-center gap-1 hover:text-slate-900" onClick={() => setSort((s) => ({ key: k, dir: s.key === k ? -s.dir : 1 }))}>
         {children}
         {sort.key === k && (sort.dir === 1 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
       </button>
+      <ColGrip col={col} />
     </th>
   );
-  const Head = ({ children, className = '' }) => <th className={`${headCls} ${className}`}>{children}</th>;
+  const Head = ({ col, children, className = '' }) => (
+    <th className={`${headCls} ${className}`}>
+      {children}
+      <ColGrip col={col} />
+    </th>
+  );
 
   function exportCSV() {
     const cols = [
@@ -346,7 +412,11 @@ export default function SheetView({ client, posts, month, isAdmin, onOpen, peopl
     { id: 'remarks', w: 170 },
     ...(showMetrics ? ['reacts', 'comments', 'shares', 'reach', 'engagement', 'linkClicks'].map((id) => ({ id, w: 92 })).concat({ id: 'feedback', w: 112 }) : []),
   ];
-  const tableWidth = cols.reduce((s, c) => s + c.w, 0);
+  const widthOf = (id) => colW[id] ?? cols.find((c) => c.id === id)?.w ?? 120;
+  const tableWidth = cols.reduce((sum, c) => sum + widthOf(c.id), 0);
+  // a taller row shows more lines of its long texts (caption, hashtags, remarks)
+  const linesFor = (p) => (rowH[p.id] ? Math.max(1, Math.floor((rowH[p.id] - 24) / 20)) : 5);
+  const customSizes = Object.keys(colW).length + Object.keys(rowH).length > 0;
 
   return (
     <div className="card overflow-hidden">
@@ -404,6 +474,13 @@ export default function SheetView({ client, posts, month, isAdmin, onOpen, peopl
             <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Show archived
           </label>
         )}
+        {customSizes ? (
+          <button className="btn-ghost px-2 py-1 text-xs" onClick={() => { setColW({}); setRowH({}); }} title="Put all column widths and row heights back to normal">
+            <RotateCcw className="h-3.5 w-3.5" /> Reset sizes
+          </button>
+        ) : (
+          <span className="hidden text-xs text-slate-400 xl:inline">Tip: drag a column edge or a row bottom edge to resize</span>
+        )}
         <span className="ml-auto flex items-center gap-1 text-xs text-slate-500">
           {state === 'pending' && 'Unsaved changes…'}
           {state === 'saving' && (<><Loader2 className="h-3 w-3 animate-spin" /> Saving…</>)}
@@ -432,7 +509,7 @@ export default function SheetView({ client, posts, month, isAdmin, onOpen, peopl
           {/* fixed column widths: long text wraps downwards inside its column instead of stretching the table sideways */}
           <table className="table-fixed border-collapse" style={{ width: tableWidth, minWidth: '100%' }}>
             <colgroup>
-              {cols.map((c) => <col key={c.id} style={{ width: c.w }} />)}
+              {cols.map((c) => <col key={c.id} style={{ width: widthOf(c.id) }} />)}
             </colgroup>
             <thead>
               <tr>
@@ -453,21 +530,21 @@ export default function SheetView({ client, posts, month, isAdmin, onOpen, peopl
                 <SortHead k="date">Date</SortHead>
                 <SortHead k="pillar">Pillar / service</SortHead>
                 <SortHead k="title">Topic</SortHead>
-                <Head>Platforms</Head>
+                <Head col="platforms">Platforms</Head>
                 <SortHead k="status">Status</SortHead>
                 <SortHead k="approver">Approver</SortHead>
                 <SortHead k="format">Format</SortHead>
-                {showContent && <Head>Caption</Head>}
-                {showContent && <Head>Hashtags</Head>}
-                <Head>Pubmat</Head>
-                <Head>Remarks</Head>
-                {showMetrics && ['Reacts', 'Comments', 'Shares', 'Reach', 'Engagement', 'Link clicks'].map((h) => <Head key={h}>{h}</Head>)}
-                {showMetrics && <Head>Feedback</Head>}
+                {showContent && <Head col="caption">Caption</Head>}
+                {showContent && <Head col="hashtags">Hashtags</Head>}
+                <Head col="pubmat">Pubmat</Head>
+                <Head col="remarks">Remarks</Head>
+                {showMetrics && ['Reacts', 'Comments', 'Shares', 'Reach', 'Engagement', 'Link clicks'].map((h, i) => <Head key={h} col={['reacts', 'comments', 'shares', 'reach', 'engagement', 'linkClicks'][i]}>{h}</Head>)}
+                {showMetrics && <Head col="feedback">Feedback</Head>}
               </tr>
             </thead>
             <tbody>
               {rows.map((p) => (
-                <tr key={p.id} className={`border-b border-slate-100 align-top ${selected.has(p.id) ? 'bg-brand-50' : 'hover:bg-brand-50/50'} ${showArchived ? 'text-slate-500' : ''}`}>
+                <tr key={p.id} style={rowH[p.id] ? { height: rowH[p.id] } : undefined} className={`border-b border-slate-100 align-top ${selected.has(p.id) ? 'bg-brand-50' : 'hover:bg-brand-50/50'} ${showArchived ? 'text-slate-500' : ''}`}>
                   {isAdmin && (
                     <td className="px-1 py-2.5 text-center">
                       <input
@@ -479,10 +556,25 @@ export default function SheetView({ client, posts, month, isAdmin, onOpen, peopl
                       />
                     </td>
                   )}
-                  <td className="px-1 py-1.5">
+                  <td className="relative px-1 py-1.5">
                     <button className="cursor-pointer rounded p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700" title="Open details" onClick={() => onOpen(p)}>
                       <Maximize2 className="h-3.5 w-3.5" />
                     </button>
+                    {/* grip along the bottom edge of the whole row: drag to resize, double-click to reset */}
+                    <span
+                      role="separator"
+                      aria-orientation="horizontal"
+                      aria-label={`Resize row ${p.title}`}
+                      title="Drag to resize the row · double-click to reset"
+                      className="absolute -bottom-1 z-10 h-2 cursor-row-resize touch-none select-none hover:bg-brand-500/25"
+                      style={{ left: isAdmin ? -widthOf('select') : 0, width: tableWidth }}
+                      onPointerDown={(e) => {
+                        const start = e.currentTarget.closest('tr').getBoundingClientRect().height;
+                        document.body.style.cursor = 'row-resize';
+                        startDrag(e, (_dx, dy) => setRowH((prev) => ({ ...prev, [p.id]: Math.round(Math.max(MIN_ROW, start + dy)) })));
+                      }}
+                      onDoubleClick={() => setRowH(({ [p.id]: _drop, ...rest }) => rest)}
+                    />
                   </td>
                   <td className="px-1 py-1.5">
                     {ro ? (
@@ -538,11 +630,11 @@ export default function SheetView({ client, posts, month, isAdmin, onOpen, peopl
                   <td className="px-1 py-1.5">{ro ? <ReadText>{p.format}</ReadText> : <TextCell value={p.format} placeholder="—" onSave={(v) => edit(p, { format: v })} />}</td>
                   {showContent && (
                     <td className="px-1 py-1.5">
-                      {ro ? <ReadText previewRows={5}>{p.caption}</ReadText> : <TextCell value={p.caption} placeholder="Caption…" maxRows={16} previewRows={5} onSave={(v) => edit(p, { caption: v })} />}
+                      {ro ? <ReadText previewRows={linesFor(p)}>{p.caption}</ReadText> : <TextCell value={p.caption} placeholder="Caption…" maxRows={16} previewRows={linesFor(p)} onSave={(v) => edit(p, { caption: v })} />}
                     </td>
                   )}
                   {showContent && (
-                    <td className="px-1 py-1.5">{ro ? <ReadText muted previewRows={5}>{p.hashtags}</ReadText> : <TextCell value={p.hashtags} placeholder="#…" previewRows={5} onSave={(v) => edit(p, { hashtags: v })} />}</td>
+                    <td className="px-1 py-1.5">{ro ? <ReadText muted previewRows={linesFor(p)}>{p.hashtags}</ReadText> : <TextCell value={p.hashtags} placeholder="#…" previewRows={linesFor(p)} onSave={(v) => edit(p, { hashtags: v })} />}</td>
                   )}
                   <td className="px-2 py-2 text-[13px]">
                     {p.pubmatLinks?.filter((l) => /^https?:/.test(l)).map((l, i) => (
@@ -552,7 +644,7 @@ export default function SheetView({ client, posts, month, isAdmin, onOpen, peopl
                     ))}
                     {!p.pubmatLinks?.some((l) => /^https?:/.test(l)) && <span className="break-words text-slate-500">{p.pubmatLinks?.[0] || '—'}</span>}
                   </td>
-                  <td className="px-1 py-1.5">{ro ? <ReadText muted previewRows={5}>{p.remarks}</ReadText> : <TextCell value={p.remarks} placeholder="—" previewRows={5} onSave={(v) => edit(p, { remarks: v })} />}</td>
+                  <td className="px-1 py-1.5">{ro ? <ReadText muted previewRows={linesFor(p)}>{p.remarks}</ReadText> : <TextCell value={p.remarks} placeholder="—" previewRows={linesFor(p)} onSave={(v) => edit(p, { remarks: v })} />}</td>
                   {showMetrics &&
                     ['reacts', 'comments', 'shares', 'reach', 'engagement', 'linkClicks'].map((k) => (
                       <td key={k} className="px-1 py-1.5">

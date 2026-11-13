@@ -11,3 +11,6 @@ coverage/
 
 # local Claude Code / editor settings
 .claude/settings.local.json
+
+# local design previews
+preview-redesign/

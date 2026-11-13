@@ -207,7 +207,7 @@ export default function IdeasView({ client, ideas, isAdmin, onOpen, loading }) {
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
-              className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm ${filter === f.id ? 'bg-brand-600 font-medium text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+              className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm ${filter === f.id ? 'bg-brand-700 font-medium text-white shadow-sm' : 'bg-brand-50 text-brand-700 hover:bg-brand-100'}`}
             >
               {f.id === 'attention' && <Bell className="h-3.5 w-3.5" />}
               {f.label}
