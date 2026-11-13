@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { DndContext, DragOverlay, PointerSensor, pointerWithin, rectIntersection, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import { ArrowDownToLine, CalendarDays, GripVertical, MessageSquare } from 'lucide-react';
-import { useBulkUpdate } from '../../api/hooks';
+import { useStatusChange } from '../../components/StatusChange';
 import { STATUS } from '../../lib/constants';
 import { formatDate } from '../../lib/dates';
 import { PlacementChips } from '../../components/ui';
@@ -41,7 +41,7 @@ function CardBody({ post, draggable }) {
         <span className="inline-flex items-center gap-1">
           <CalendarDays className="h-3.5 w-3.5" />
           {post.date ? formatDate(post.date) : 'No date'}
-          {post.time ? ` · ${post.time}` : ''}
+          {post.time ? ` Â· ${post.time}` : ''}
         </span>
         {post.pillar && (
           <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -115,7 +115,7 @@ function Column({ column, posts, onOpen, isAdmin, dragging, fromHere }) {
 }
 
 export default function BoardView({ posts, isAdmin, onOpen }) {
-  const bulk = useBulkUpdate();
+  const { change, dialog } = useStatusChange();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [active, setActive] = useState(null); // the post being dragged
   const [overId, setOverId] = useState(null);
@@ -141,7 +141,8 @@ export default function BoardView({ posts, isAdmin, onOpen }) {
     const post = a.data.current.post;
     const target = BOARD_COLUMNS.find((c) => c.id === over.id);
     if (!target || columnOf(post.status)?.id === target.id) return;
-    bulk.mutate([{ id: post.id, data: { status: target.status } }]);
+    // Approved / Needs edit ask for confirmation (and a comment) first; only the approver may do it
+    change(post, target.status);
   }
 
   return (
@@ -170,13 +171,14 @@ export default function BoardView({ posts, isAdmin, onOpen }) {
               className="mt-1.5 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold text-white"
               style={{ background: overCol && overCol.id !== fromCol ? overCol.color : '#64748b' }}
             >
-              {overCol && overCol.id !== fromCol ? `→ ${overCol.label}` : 'Drop on a column'}
+              {overCol && overCol.id !== fromCol ? `â†’ ${overCol.label}` : 'Drop on a column'}
             </div>
           </div>
         )}
       </DragOverlay>
 
-      {isAdmin && <p className="mt-2 text-xs text-slate-500">Drag a card to another column to change its stage. Open a card for the exact status.</p>}
+      {dialog}
+      {isAdmin && <p className="mt-2 text-xs text-slate-500">Drag a card to another column to change its stage. Only a post's approver can move it to Approved or Needs edit; the person assigned moves it to For approval, Scheduled and Published.</p>}
     </DndContext>
   );
 }

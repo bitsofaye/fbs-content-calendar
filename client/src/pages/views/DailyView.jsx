@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
 import { CalendarCheck2, Check, ChevronLeft, ChevronRight, Clock3, ExternalLink, MessageSquare, Plus, RotateCcw, Rows3, Send, Sun } from 'lucide-react';
-import { useReviewPost, useSubmitPost } from '../../api/hooks';
+import { useSubmitPost } from '../../api/hooks';
+import { useAuth } from '../../context/AuthContext';
+import { useStatusChange } from '../../components/StatusChange';
+import { canReviewPost, statusBlock } from '../../lib/workflow';
 import { PLACEMENT, STATUS } from '../../lib/constants';
 import { addDays, formatDate, todayISO, weekday, weekOf } from '../../lib/dates';
 import { PH_HOLIDAYS } from '../../lib/holidays';
@@ -48,20 +51,20 @@ function WeekStrip({ day, setDay, counts }) {
 
 // One post, shown roughly the way it will look when posted, plus what to do next
 function PostPreview({ post, client, isAdmin, onOpen }) {
-  const review = useReviewPost();
+  const { user } = useAuth();
   const submit = useSubmitPost();
-  const [asking, setAsking] = useState(false);
-  const [comment, setComment] = useState('');
+  const { change, dialog } = useStatusChange();
   const [expanded, setExpanded] = useState(false);
   const links = (post.pubmatLinks || []).filter((l) => /^https?:/.test(l));
-  const canReview = post.status === 'FOR_APPROVAL';
-  const canSubmit = isAdmin && ['IN_PROGRESS', 'CREATED', 'EDITED', 'TO_EDIT', 'REJECTED'].includes(post.status);
+  const canReview = canReviewPost(user, post);
+  const canSubmit = isAdmin && ['IN_PROGRESS', 'CREATED', 'EDITED', 'TO_EDIT', 'REJECTED'].includes(post.status) && !statusBlock(user, post, 'FOR_APPROVAL');
   const caption = post.caption || '';
   const long = caption.length > 320 || caption.split('\n').length > 6;
   const platformNames = [...new Set((post.placements || []).map((p) => PLACEMENT[p]?.label.split(' ')[0]))].join(' · ');
 
   return (
     <article className="card overflow-hidden">
+      {dialog}
       {/* what it is */}
       <header className="flex flex-wrap items-start gap-3 border-b border-slate-100 px-5 py-4">
         <div className="min-w-0 flex-1">
@@ -145,33 +148,14 @@ function PostPreview({ post, client, isAdmin, onOpen }) {
       {/* what to do next */}
       {(canReview || canSubmit) && (
         <footer className="border-t border-slate-100 bg-brand-50/60 px-5 py-3">
-          {asking ? (
-            <div className="space-y-2">
-              <textarea autoFocus className="input text-sm" rows={2} placeholder="What should be changed?" value={comment} onChange={(e) => setComment(e.target.value)} />
-              <div className="flex justify-end gap-2">
-                <button className="btn-ghost text-xs" onClick={() => setAsking(false)}>Cancel</button>
-                <button
-                  className="btn-primary text-xs"
-                  disabled={!comment.trim() || review.isPending}
-                  onClick={async () => {
-                    await review.mutateAsync({ id: post.id, action: 'REQUEST_CHANGES', comment });
-                    setAsking(false);
-                    setComment('');
-                  }}
-                >
-                  Send
-                </button>
-              </div>
-            </div>
-          ) : (
             <div className="flex flex-wrap items-center gap-2">
               <span className="mr-auto text-xs text-slate-600">{canReview ? 'Waiting for approval' : 'Ready to send for approval?'}</span>
               {canReview && (
                 <>
-                  <button className="btn-success px-3 py-1.5 text-xs" disabled={review.isPending} onClick={() => review.mutate({ id: post.id, action: 'APPROVE' })}>
+                  <button className="btn-success px-3 py-1.5 text-xs" onClick={() => change(post, 'APPROVED')}>
                     <Check className="h-3.5 w-3.5" /> Approve
                   </button>
-                  <button className="btn-secondary px-3 py-1.5 text-xs" onClick={() => setAsking(true)}>
+                  <button className="btn-secondary px-3 py-1.5 text-xs" onClick={() => change(post, 'TO_EDIT')}>
                     <RotateCcw className="h-3.5 w-3.5" /> Request changes
                   </button>
                 </>
@@ -182,7 +166,6 @@ function PostPreview({ post, client, isAdmin, onOpen }) {
                 </button>
               )}
             </div>
-          )}
         </footer>
       )}
     </article>

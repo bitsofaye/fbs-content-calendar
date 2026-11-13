@@ -5,7 +5,7 @@ import {
   UserCircle, Users, X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useClients, useOverview, usePosts } from '../api/hooks';
+import { useClients, useNotifications, useOverview, usePosts } from '../api/hooks';
 import { openClientSwitcher, usePins } from '../lib/pins';
 import { useWorkspace } from '../lib/workspace';
 import ClientSwitcher from './ClientSwitcher';
@@ -43,9 +43,9 @@ function ViewLink({ slug, view, icon: Icon, children }) {
 function CalendarLinks({ slug, showBoard, ideaAlerts = 0 }) {
   return (
     <div className="space-y-0.5">
+      <ViewLink slug={slug} view="daily" icon={Rows3}>Daily View</ViewLink>
       <ViewLink slug={slug} view="calendar" icon={CalendarDays}>Calendar</ViewLink>
       <ViewLink slug={slug} view="sheet" icon={Table2}>Content plan</ViewLink>
-      <ViewLink slug={slug} view="daily" icon={Rows3}>Daily view</ViewLink>
       {showBoard && <ViewLink slug={slug} view="board" icon={Columns3}>Board</ViewLink>}
       <ViewLink slug={slug} view="ideas" icon={Lightbulb}>
         <span className="flex-1">Idea bank</span>
@@ -204,7 +204,7 @@ function Sidebar({ onNavigate }) {
   );
 }
 
-const VIEW_LABEL = { calendar: 'Calendar', sheet: 'Content plan', daily: 'Daily view', board: 'Board', ideas: 'Idea bank' };
+const VIEW_LABEL = { calendar: 'Calendar', sheet: 'Content plan', daily: 'Daily View', board: 'Board', ideas: 'Idea bank' };
 const ADMIN_PAGES = {
   '/admin/approvals': ['Approvals'],
   '/admin/clients': ['Manage', 'Clients'],
@@ -236,6 +236,30 @@ function NotificationBell() {
   const ref = useRef(null);
   const { data: overview } = useOverview({ enabled: isAdmin });
   const { data: waitingMine = [] } = usePosts({ clientId: user?.clientId, status: 'FOR_APPROVAL', limit: 100 }, { enabled: !isAdmin });
+  const { data: assigned = [] } = useNotifications();
+  // "assigned to you" items count as new until the bell is opened
+  const seenKey = `cc_seen_assigned_${user?.id}`;
+  const [seenAt, setSeenAt] = useState(() => {
+    try {
+      return localStorage.getItem(seenKey) || '';
+    } catch {
+      return '';
+    }
+  });
+  const unseenAssigned = assigned.filter((a) => a.at > seenAt).length;
+  useEffect(() => {
+    if (!open || !assigned.length) return;
+    const latest = assigned[0].at;
+    if (latest <= seenAt) return;
+    try {
+      localStorage.setItem(seenKey, latest);
+    } catch {
+      /* private mode: just keep it for this visit */
+    }
+    // keep the "new" marks visible while the bell is open; the count clears next time
+    const t = setTimeout(() => setSeenAt(latest), 4000);
+    return () => clearTimeout(t);
+  }, [open, assigned, seenAt, seenKey]);
   useEffect(() => {
     if (!open) return;
     const close = (e) => !ref.current?.contains(e.target) && setOpen(false);
@@ -243,14 +267,30 @@ function NotificationBell() {
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
 
+  const postLink = (p) => `/c/${p.client.slug}?post=${p.id}${p.date ? `&month=${p.date.slice(0, 7)}` : ''}`;
+  const assignedGroup = {
+    title: 'Assigned to you',
+    icon: UserCircle,
+    counted: unseenAssigned,
+    items: assigned.map((a) => ({
+      ...a.post,
+      id: a.id,
+      postId: a.post.id,
+      isNew: a.at > seenAt,
+      sub: `${a.as === 'approver' ? 'You are the approver' : 'Assigned to you'}${a.by ? ` by ${a.by}` : ''}`,
+    })),
+    link: (p) => postLink({ ...p, id: p.postId }),
+  };
   const groups = isAdmin
     ? [
+        assignedGroup,
         { title: 'Ideas that need attention', icon: Lightbulb, items: overview?.ideasNeedingAttention || [], link: (p) => `/c/${p.client.slug}?view=ideas` },
         { title: 'New posts from clients', icon: Inbox, items: (overview?.clientRequests || []).filter((p) => !p.needsAttention), link: (p) => `/c/${p.client.slug}?post=${p.id}${p.date ? `&month=${p.date.slice(0, 7)}` : ''}` },
         { title: 'Waiting for your approval', icon: CheckSquare, items: overview?.myApprovals || [], link: (p) => `/c/${p.client.slug}?post=${p.id}${p.date ? `&month=${p.date.slice(0, 7)}` : ''}` },
       ]
-    : [{ title: 'Waiting for your approval', icon: CheckSquare, items: waitingMine, link: () => '/approvals' }];
-  const total = groups.reduce((n, g) => n + g.items.length, 0);
+    : [assignedGroup, { title: 'Waiting for your approval', icon: CheckSquare, items: waitingMine, link: () => '/approvals' }];
+  const total = groups.reduce((n, g) => n + (g.counted ?? g.items.length), 0);
+  const anything = groups.some((g) => g.items.length);
 
   return (
     <div ref={ref} className="relative">
@@ -264,7 +304,7 @@ function NotificationBell() {
         <div className="absolute top-full right-0 z-50 mt-2 w-[340px] max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lift">
           <div className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-brand-700">Notifications</div>
           <div className="max-h-[60vh] overflow-y-auto">
-            {total === 0 && <p className="px-4 py-8 text-center text-sm text-slate-500">You’re all caught up.</p>}
+            {!anything && <p className="px-4 py-8 text-center text-sm text-slate-500">You’re all caught up.</p>}
             {groups.filter((g) => g.items.length).map((g) => (
               <div key={g.title} className="border-b border-slate-100 last:border-0">
                 <div className="flex items-center gap-1.5 px-4 pt-3 pb-1 eyebrow">
@@ -274,10 +314,13 @@ function NotificationBell() {
                   {g.items.slice(0, 6).map((p) => (
                     <li key={p.id}>
                       <Link to={g.link(p)} onClick={() => setOpen(false)} className="block px-4 py-2 hover:bg-brand-50">
-                        <span className="block text-sm font-medium break-words text-slate-800">{p.title}</span>
+                        <span className="flex items-start gap-1.5 text-sm font-medium break-words text-slate-800">
+                          {p.isNew && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500" title="New" />}
+                          <span className="min-w-0">{p.title}</span>
+                        </span>
                         <span className="block text-xs text-slate-500">
                           {p.client?.name ? `${p.client.name} · ` : ''}
-                          {p.createdBy?.name ? `by ${p.createdBy.name}` : p.date ? p.date : 'No date'}
+                          {p.sub || (p.createdBy?.name ? `by ${p.createdBy.name}` : p.date ? p.date : 'No date')}
                         </span>
                       </Link>
                     </li>

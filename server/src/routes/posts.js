@@ -7,8 +7,18 @@ import { postListInclude, serializePost, serializePosts } from '../lib/serialize
 import { dateStr, id, PLACEMENTS, postCreate, postListQuery, postUpdate, STATUSES } from '../lib/schemas.js';
 import { assertClientAccess, requireAdmin, resolveClientId } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { assignmentLogs, NEEDS_COMMENT, statusBlock } from '../lib/workflow.js';
 
 const router = Router();
+
+/** Status changes made by editing (drawer, content plan, board) follow the approver / assignee rules. */
+function assertStatusChange(user, before, data) {
+  if (!data.status || data.status === before.status) return;
+  // the approver/assignee may be changed in the same edit: judge by who is responsible after it
+  const block = statusBlock(user, { ...before, ...data }, data.status) || statusBlock(user, before, data.status);
+  if (block) throw forbidden(block);
+  if (NEEDS_COMMENT.includes(data.status)) throw badRequest('Please use “Request changes” and say what needs to be edited');
+}
 
 // ---------- helpers ----------
 
@@ -150,10 +160,13 @@ router.post('/', validate(postCreate), async (req, res) => {
   await checkRefs(clientId, fields);
   const data = toDbData(fields);
   if (!data.status) data.status = data.date ? 'IN_PROGRESS' : 'IDEA';
+  if (NEEDS_COMMENT.includes(data.status)) data.status = data.date ? 'IN_PROGRESS' : 'IDEA';
   const post = await prisma.post.create({
     data: { ...data, clientId, createdById: req.user.id, activities: { create: { userId: req.user.id, action: 'CREATED' } } },
     include: postListInclude,
   });
+  const notify = assignmentLogs(null, data, post.id, req.user.id);
+  if (notify.length) await prisma.activityLog.createMany({ data: notify });
   res.status(201).json({ post: serializePost(post) });
 });
 
@@ -163,10 +176,11 @@ router.patch('/:id', validate(postUpdate), async (req, res) => {
   const fields = clientSafe(req.valid.body, req.user);
   await checkRefs(before.clientId, fields);
   const data = toDbData(fields);
+  assertStatusChange(req.user, before, data);
   if (data.approverId) data.approverName = null;
   // once FBS starts working on a flagged idea, the "needs attention" flag has done its job
   if (data.status && data.status !== "IDEA" && before.needsAttention && !("needsAttention" in data)) data.needsAttention = false;
-  const logs = activityFor(before, data, req.user.id);
+  const logs = [...activityFor(before, data, req.user.id), ...assignmentLogs(before, data, before.id, req.user.id)];
   const [post] = await prisma.$transaction([
     prisma.post.update({ where: { id: before.id }, data, include: postListInclude }),
     ...(logs.length ? [prisma.activityLog.createMany({ data: logs })] : []),
@@ -190,10 +204,11 @@ router.post('/bulk', requireAdmin, validate(bulkSchema), async (req, res) => {
     if (!before) throw notFound(`Post ${u.id} not found`);
     await checkRefs(before.clientId, u.data);
     const data = toDbData(u.data);
+    assertStatusChange(req.user, before, data);
     if (data.approverId) data.approverName = null;
     if (data.status && data.status !== "IDEA" && before.needsAttention && !("needsAttention" in data)) data.needsAttention = false;
     ops.push(prisma.post.update({ where: { id: u.id }, data, include: postListInclude }));
-    const logs = activityFor(before, data, req.user.id);
+    const logs = [...activityFor(before, data, req.user.id), ...assignmentLogs(before, data, before.id, req.user.id)];
     if (logs.length) ops.push(prisma.activityLog.createMany({ data: logs }));
   }
   const results = await prisma.$transaction(ops);
@@ -303,6 +318,9 @@ router.post('/:id/submit', requireAdmin, validate(submitSchema), async (req, res
   const before = await loadPost(req.params.id, req.user);
   const { approverId, comment } = req.valid.body;
   if (approverId) await checkRefs(before.clientId, { approverId });
+  const block = statusBlock(req.user, before, 'FOR_APPROVAL');
+  if (block) throw forbidden(block);
+  const notify = assignmentLogs(before, { approverId }, before.id, req.user.id);
   const [post] = await prisma.$transaction([
     prisma.post.update({
       where: { id: before.id },
@@ -311,6 +329,7 @@ router.post('/:id/submit', requireAdmin, validate(submitSchema), async (req, res
     }),
     prisma.activityLog.create({ data: { postId: before.id, userId: req.user.id, action: 'SUBMITTED', meta: { from: before.status, approverId: approverId ?? before.approverId } } }),
     ...(comment ? [prisma.comment.create({ data: { postId: before.id, userId: req.user.id, body: comment } })] : []),
+    ...(notify.length ? [prisma.activityLog.createMany({ data: notify })] : []),
   ]);
   res.json({ post: serializePost(post) });
 });
@@ -322,13 +341,15 @@ const REVIEW = {
 };
 const reviewSchema = z.object({ action: z.enum(['APPROVE', 'REQUEST_CHANGES', 'REJECT']), comment: z.string().trim().max(5000).optional() });
 
-// Admins (incl. the assigned approver) and the client's own users can review
+// The post's approver (any FBS member when none is set) and the client's own users can review
 router.post('/:id/review', validate(reviewSchema), async (req, res) => {
   const before = await loadPost(req.params.id, req.user); // enforces client scope
   const { action, comment } = req.valid.body;
   if (action !== 'APPROVE' && !comment) throw badRequest('Please add a comment explaining what should change');
   if (req.user.role === 'CLIENT' && before.status === 'IDEA') throw forbidden('Ideas cannot be reviewed yet');
   const r = REVIEW[action];
+  const block = statusBlock(req.user, before, r.status);
+  if (block) throw forbidden(block);
   const [post] = await prisma.$transaction([
     prisma.post.update({ where: { id: before.id }, data: { status: r.status }, include: postListInclude }),
     prisma.activityLog.create({ data: { postId: before.id, userId: req.user.id, action: r.action, meta: { from: before.status, to: r.status } } }),

@@ -5,6 +5,9 @@ import { FEEDBACK, PLACEMENT, PLACEMENTS, STATUS, STATUSES } from '../../lib/con
 import { formatDate, monthBounds, todayISO } from '../../lib/dates';
 import { downloadCSV, toCSV } from '../../lib/csv';
 import { EmptyState, PillarTag, PlatformList, StatusBadge } from '../../components/ui';
+import { useAuth } from '../../context/AuthContext';
+import { useStatusChange } from '../../components/StatusChange';
+import { REVIEW_STATUSES, statusBlock } from '../../lib/workflow';
 
 // ---------- batching save queue: many quick edits → one /posts/bulk request ----------
 function useSaveQueue() {
@@ -307,6 +310,13 @@ export default function SheetView({ client, posts, month, isAdmin, onOpen, peopl
     setLocal((l) => ({ ...l, [post.id]: { ...(l[post.id] || {}), ...data } }));
     queue(post.id, data);
   };
+  // status: Approved / Needs edit / Rejected (and moves someone else is responsible for) go through the pop-up and the rules
+  const { user } = useAuth();
+  const { change: changeStatus, dialog: statusDialog } = useStatusChange();
+  const setStatus = (post, status) => {
+    if (REVIEW_STATUSES.includes(status) || statusBlock(user, post, status)) changeStatus(post, status);
+    else edit(post, { status });
+  };
 
   const headCls = 'sticky top-0 z-10 border-b border-slate-200 bg-brand-50 px-2 py-2.5 text-left align-bottom text-xs font-semibold text-slate-600';
   // grip on the right edge of a column header: drag to resize, double-click to reset
@@ -420,6 +430,7 @@ export default function SheetView({ client, posts, month, isAdmin, onOpen, peopl
 
   return (
     <div className="card overflow-hidden">
+      {statusDialog}
       {n > 0 ? (
         // selection bar: icon-only actions for the chosen rows
         <div className="flex flex-wrap items-center gap-1.5 border-b border-brand-500/30 bg-brand-50 px-3 py-1.5">
@@ -612,7 +623,7 @@ export default function SheetView({ client, posts, month, isAdmin, onOpen, peopl
                   <td className="px-1 py-1.5">
                     {ro ? <div className="px-2 py-1"><StatusBadge status={p.status} /></div> : (
                       <div className={`rounded-md ring-1 ring-inset ${STATUS[p.status]?.cls}`}>
-                        <SelectCell value={p.status} options={STATUSES} onSave={(v) => v && edit(p, { status: v })} />
+                        <SelectCell value={p.status} options={STATUSES} onSave={(v) => v && setStatus(p, v)} />
                       </div>
                     )}
                   </td>

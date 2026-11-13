@@ -9,12 +9,19 @@ import { Spinner } from '../../components/ui';
 
 const PILLAR_KEYS = ['pillars', 'client', 'posts', 'dashboard'];
 
-function PillarRow({ pillar }) {
-  const [f, setF] = useState(pillar);
-  useEffect(() => setF(pillar), [pillar]);
+const DRAFT_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6', '#ec4899'];
+let draftSeq = 0;
+const newDraft = (i = 0) => ({ key: `d${++draftSeq}`, name: '', color: DRAFT_COLORS[i % DRAFT_COLORS.length], weekday: null });
+
+const FIELDS = ['name', 'color', 'weekday', 'active', 'sortOrder'];
+const pick = (f) => ({ name: f.name.trim(), color: f.color, weekday: f.weekday, sortOrder: f.sortOrder, active: f.active });
+const isDirty = (f, pillar) => FIELDS.some((k) => f[k] !== pillar[k]);
+
+// The row's values live in the page (so "Save all" can save every row at once)
+function PillarRow({ pillar, f, setF }) {
   const save = useAdminMutation((body) => api.patch(`/pillars/${pillar.id}`, body), PILLAR_KEYS, 'Pillar saved');
   const del = useAdminMutation(() => api.delete(`/pillars/${pillar.id}`), PILLAR_KEYS, 'Pillar deleted');
-  const dirty = f.name !== pillar.name || f.color !== pillar.color || f.weekday !== pillar.weekday || f.active !== pillar.active || f.sortOrder !== pillar.sortOrder;
+  const dirty = isDirty(f, pillar);
   return (
     <tr className={f.active ? '' : 'opacity-50'}>
       <td className="px-3 py-1.5">
@@ -33,7 +40,7 @@ function PillarRow({ pillar }) {
       <td className="px-3 py-1.5">
         <div className="flex justify-end gap-1">
           {dirty && <span className="self-center text-[11px] text-amber-700">unsaved</span>}
-          <button className="btn-primary px-2 py-1" title="Save this pillar" disabled={!dirty || save.isPending} onClick={() => save.mutate({ name: f.name, color: f.color, weekday: f.weekday, sortOrder: f.sortOrder, active: f.active })}>
+          <button className="btn-primary px-2 py-1" title="Save this pillar" disabled={!dirty || !f.name.trim() || save.isPending} onClick={() => save.mutate(pick(f))}>
             <Save className="h-3.5 w-3.5" />
           </button>
           <button
@@ -96,9 +103,39 @@ export default function PillarsPage() {
   const cid = clientId || clients[0]?.id;
   const { data: pillars, isLoading } = usePillars(cid);
   const { data: themes = [], isFetching: themesLoading } = useThemes(cid, year);
-  const [newName, setNewName] = useState('');
-  const [newColor, setNewColor] = useState('#3b82f6');
+  // edits to existing pillars, and new pillars typed in but not saved yet
+  const [edits, setEdits] = useState({});
+  const [drafts, setDrafts] = useState(() => [newDraft()]);
+  useEffect(() => {
+    setEdits({});
+    setDrafts([newDraft()]);
+  }, [cid]);
+  useEffect(() => {
+    // after a save the server copy changes: drop edits that now match it
+    setEdits((e) => Object.fromEntries(Object.entries(e).filter(([id, f]) => {
+      const p = pillars?.find((x) => x.id === id);
+      return p && isDirty(f, p);
+    })));
+  }, [pillars]);
   const add = useAdminMutation((body) => api.post('/pillars', body), PILLAR_KEYS, 'Pillar added');
+
+  const valueOf = (p) => edits[p.id] || p;
+  const changed = (pillars || []).filter((p) => edits[p.id] && isDirty(edits[p.id], p));
+  const toAdd = drafts.filter((d) => d.name.trim());
+  const pendingCount = changed.length + toAdd.length;
+  const saveAll = useAdminMutation(
+    async () => {
+      let order = pillars?.length || 0;
+      await Promise.all([
+        ...changed.map((p) => api.patch(`/pillars/${p.id}`, pick(edits[p.id]))),
+        ...toAdd.map((d) => api.post('/pillars', { clientId: cid, name: d.name.trim(), color: d.color, weekday: d.weekday, sortOrder: ++order })),
+      ]);
+      return { n: changed.length + toAdd.length };
+    },
+    PILLAR_KEYS,
+    (r) => `${r.n} pillar${r.n === 1 ? '' : 's'} saved`,
+  );
+  const badName = [...changed.map((p) => edits[p.id]), ...toAdd].some((f) => !f.name.trim());
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -110,11 +147,25 @@ export default function PillarsPage() {
       </div>
 
       <section className="card overflow-x-auto">
-        <div className="border-b border-slate-100 px-5 py-3.5">
-          <h2 className="font-semibold text-brand-700">Content pillars</h2>
-          <p className="text-xs text-slate-500">
-            The color key of the calendar. Give a pillar a weekday (e.g. Motivational Monday) to show it in the calendar header and to use “Generate month”.
-          </p>
+        <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-5 py-3.5">
+          <div className="min-w-0 flex-1">
+            <h2 className="font-semibold text-brand-700">Content pillars</h2>
+            <p className="text-xs text-slate-500">
+              The color key of the calendar. Give a pillar a weekday (e.g. Motivational Monday) to show it in the calendar header and to use “Generate month”.
+            </p>
+          </div>
+          {pendingCount > 0 && <span className="text-xs text-amber-700">{pendingCount} unsaved</span>}
+          <button
+            className="btn-primary"
+            disabled={!pendingCount || badName || saveAll.isPending}
+            title="Save every changed and new pillar"
+            onClick={async () => {
+              await saveAll.mutateAsync();
+              setDrafts([newDraft()]);
+            }}
+          >
+            <Save className="h-4 w-4" /> {saveAll.isPending ? 'Saving…' : 'Save all'}
+          </button>
         </div>
         {isLoading ? (
           <div className="flex justify-center p-6"><Spinner /></div>
@@ -132,21 +183,51 @@ export default function PillarsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {pillars?.map((p) => <PillarRow key={p.id} pillar={p} />)}
-              <tr className="bg-slate-50/60">
-                <td className="px-3 py-2"><input type="color" className="h-8 w-10 cursor-pointer rounded border border-slate-300" value={newColor} onChange={(e) => setNewColor(e.target.value)} /></td>
-                <td className="px-3 py-2" colSpan={5}><input className="input" placeholder="New pillar name" value={newName} onChange={(e) => setNewName(e.target.value)} /></td>
-                <td className="px-3 py-2 text-right">
-                  <button
-                    className="btn-primary px-2.5"
-                    disabled={!newName.trim() || add.isPending}
-                    onClick={async () => {
-                      await add.mutateAsync({ clientId: cid, name: newName.trim(), color: newColor, sortOrder: (pillars?.length || 0) + 1 });
-                      setNewName('');
-                    }}
-                  >
-                    <Plus className="h-4 w-4" /> Add
+              {pillars?.map((p) => (
+                <PillarRow key={p.id} pillar={p} f={valueOf(p)} setF={(f) => setEdits((e) => ({ ...e, [p.id]: f }))} />
+              ))}
+              {drafts.map((d, i) => {
+                const setD = (patch) => setDrafts((ds) => ds.map((x) => (x.key === d.key ? { ...x, ...patch } : x)));
+                return (
+                  <tr key={d.key} className="bg-slate-50/60">
+                    <td className="px-3 py-2"><input type="color" className="h-8 w-10 cursor-pointer rounded border border-slate-300" value={d.color} onChange={(e) => setD({ color: e.target.value })} /></td>
+                    <td className="px-3 py-2"><input className="input" placeholder="New pillar name" value={d.name} onChange={(e) => setD({ name: e.target.value })} /></td>
+                    <td className="px-3 py-2">
+                      <select className="input" value={d.weekday ?? ''} onChange={(e) => setD({ weekday: e.target.value === '' ? null : Number(e.target.value) })}>
+                        <option value="">— any day —</option>
+                        {WEEKDAYS.map((w, j) => <option key={w} value={j}>{w}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-3 py-2 text-xs text-slate-400" colSpan={3}>new</td>
+                    <td className="px-3 py-2">
+                      <div className="flex justify-end gap-1">
+                        <button
+                          className="btn-primary px-2.5"
+                          title="Add this pillar now"
+                          disabled={!d.name.trim() || add.isPending}
+                          onClick={async () => {
+                            await add.mutateAsync({ clientId: cid, name: d.name.trim(), color: d.color, weekday: d.weekday, sortOrder: (pillars?.length || 0) + 1 });
+                            setDrafts((ds) => (ds.length > 1 ? ds.filter((x) => x.key !== d.key) : [newDraft()]));
+                          }}
+                        >
+                          <Plus className="h-4 w-4" /> Add
+                        </button>
+                        {drafts.length > 1 && (
+                          <button className="btn-ghost px-2" title="Remove this row" onClick={() => setDrafts((ds) => ds.filter((x) => x.key !== d.key))}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr>
+                <td className="px-3 py-2" colSpan={7}>
+                  <button className="btn-ghost text-xs text-brand-700" onClick={() => setDrafts((ds) => [...ds, newDraft(ds.length)])}>
+                    <Plus className="h-3.5 w-3.5" /> Add another pillar row
                   </button>
+                  <span className="ml-2 text-xs text-slate-500">Type several pillars, then click <b>Save all</b> to save them together.</span>
                 </td>
               </tr>
             </tbody>

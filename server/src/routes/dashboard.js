@@ -82,6 +82,34 @@ router.get('/overview', requireAdmin, async (req, res) => {
   });
 });
 
+// Anyone: posts where you were recently made the approver or the assignee (newest first, last 30 days)
+router.get('/notifications', async (req, res) => {
+  const since = new Date(Date.now() - 30 * 86400000);
+  const logs = await prisma.activityLog.findMany({
+    where: {
+      action: 'ASSIGNED',
+      createdAt: { gte: since },
+      meta: { path: ['userId'], equals: req.user.id },
+      post: { archivedAt: null, ...(req.user.role === 'CLIENT' ? { clientId: req.user.clientId } : {}) },
+    },
+    include: {
+      user: { select: { id: true, name: true } },
+      post: { select: { id: true, title: true, date: true, status: true, client: clientMini } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  });
+  res.json({
+    assigned: logs.map((l) => ({
+      id: l.id,
+      as: l.meta?.as,
+      at: l.createdAt,
+      by: l.user?.name || null,
+      post: { ...l.post, date: l.post.date ? l.post.date.toISOString().slice(0, 10) : null },
+    })),
+  });
+});
+
 // One client's dashboard (admins, or that client's own users)
 router.get('/client/:clientId', async (req, res) => {
   const client = await prisma.client.findFirst({ where: { OR: [{ id: req.params.clientId }, { slug: req.params.clientId }] } });

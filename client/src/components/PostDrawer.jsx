@@ -2,11 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, Copy, ExternalLink, MessageSquare, RotateCcw, Send, Trash2, X, XCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
-  useAddComment, useCreatePost, useDeletePost, useDuplicatePost, usePost, useReviewPost, useSubmitPost, useUpdatePost, useUserOptions,
+  useAddComment, useCreatePost, useDeletePost, useDuplicatePost, usePost, useSubmitPost, useUpdatePost, useUserOptions,
 } from '../api/hooks';
 import { BOOSTS, FEEDBACK, FORMATS, PLACEMENTS, STATUSES, STATUS } from '../lib/constants';
 import { formatDate, formatDateTime } from '../lib/dates';
 import { PillarTag, PlacementChips, Spinner, StatusBadge } from './ui';
+import MaterialPreview from './MaterialPreview';
+import { useStatusChange } from './StatusChange';
+import { canReviewPost, REVIEW_STATUSES, statusBlock } from '../lib/workflow';
 
 const EMPTY = {
   title: '', date: '', time: '', status: 'IN_PROGRESS', kind: 'ORGANIC', pillarId: '', placements: ['FB_POST', 'IG_POST', 'LINKEDIN_POST'],
@@ -153,43 +156,22 @@ function Discussion({ post }) {
   );
 }
 
-function ReviewBar({ post }) {
-  const review = useReviewPost();
-  const [mode, setMode] = useState(null); // REQUEST_CHANGES | REJECT
-  const [comment, setComment] = useState('');
-  const go = async (action) => {
-    await review.mutateAsync({ id: post.id, action, comment: comment.trim() || undefined });
-    setMode(null);
-    setComment('');
-  };
+// Approve / Request changes / Reject — each opens the pop-up (a comment is required for changes and rejection)
+function ReviewBar({ post, change }) {
   return (
     <div className="border-b border-amber-200 bg-amber-50 px-5 py-3">
-      {mode ? (
-        <div className="space-y-2">
-          <textarea autoFocus className="input" rows={3} placeholder={mode === 'REJECT' ? 'Why is this rejected?' : 'What should be changed?'} value={comment} onChange={(e) => setComment(e.target.value)} />
-          <div className="flex justify-end gap-2">
-            <button className="btn-secondary" onClick={() => setMode(null)}>Cancel</button>
-            <button className={mode === 'REJECT' ? 'btn-danger' : 'btn-primary'} disabled={!comment.trim() || review.isPending} onClick={() => go(mode)}>
-              {mode === 'REJECT' ? 'Reject post' : 'Send change request'}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-auto text-sm font-medium text-amber-900">
-            {post.status === 'FOR_APPROVAL' ? 'This post is waiting for your approval' : 'Review this post'}
-          </span>
-          <button className="btn-success" disabled={review.isPending} onClick={() => go('APPROVE')}>
-            <Check className="h-4 w-4" /> Approve
-          </button>
-          <button className="btn-secondary" onClick={() => setMode('REQUEST_CHANGES')}>
-            <RotateCcw className="h-4 w-4" /> Request changes
-          </button>
-          <button className="btn-ghost text-red-600" onClick={() => setMode('REJECT')}>
-            <XCircle className="h-4 w-4" /> Reject
-          </button>
-        </div>
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-auto text-sm font-medium text-amber-900">This post is waiting for your approval</span>
+        <button className="btn-success" onClick={() => change(post, 'APPROVED')}>
+          <Check className="h-4 w-4" /> Approve
+        </button>
+        <button className="btn-secondary" onClick={() => change(post, 'TO_EDIT')}>
+          <RotateCcw className="h-4 w-4" /> Request changes
+        </button>
+        <button className="btn-ghost text-red-600" onClick={() => change(post, 'REJECTED')}>
+          <XCircle className="h-4 w-4" /> Reject
+        </button>
+      </div>
     </div>
   );
 }
@@ -234,9 +216,20 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated }
   const pillars = useMemo(() => (client.pillars || []).filter((p) => p.active || p.id === form.pillarId), [client.pillars, form.pillarId]);
   const pillar = (client.pillars || []).find((p) => p.id === form.pillarId);
   const readOnly = !canEdit;
-  // approve / request changes only makes sense while a post is waiting for approval
-  const canReview = post && post.status === 'FOR_APPROVAL';
+  // approve / request changes only while a post is waiting for approval, and (FBS) only by its approver
+  const canReview = canReviewPost(user, post);
+  const waitingOnOther = post?.status === 'FOR_APPROVAL' && !canReview;
   const hasApprover = Boolean(form.approverId || post?.approverName);
+  const statusChange = useStatusChange();
+  // after the pop-up confirms, the post already has its new status: keep the form in step without marking it unsaved
+  const onStatusDone = (s) => {
+    setForm((f) => ({ ...f, status: s }));
+    setSnapshot((snap) => JSON.stringify({ ...JSON.parse(snap), status: s }));
+  };
+  const pickStatus = (s) => {
+    if (!isNew && (REVIEW_STATUSES.includes(s) || statusBlock(user, post, s))) statusChange.change(post, s, { onDone: onStatusDone });
+    else setForm((f) => ({ ...f, status: s }));
+  };
 
   async function save() {
     const payload = toPayload(form);
@@ -254,6 +247,7 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated }
   // Esc closes (with the unsaved-changes check); Ctrl/⌘ + S saves
   useEffect(() => {
     const onKey = (e) => {
+      if (statusChange.open) return; // the pop-up handles its own keys
       if (e.key === 'Escape') requestClose();
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's' && canEdit) {
         e.preventDefault();
@@ -300,7 +294,13 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated }
           </button>
         </header>
 
-        {canReview && <ReviewBar post={post} />}
+        {canReview && <ReviewBar post={post} change={statusChange.change} />}
+        {waitingOnOther && isAdmin && (
+          <div className="border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-sm text-amber-900">
+            Waiting for approval from <span className="font-medium">{post.approver?.name || post.approverName}</span>. Only the approver can approve it or ask for edits.
+          </div>
+        )}
+        {statusChange.dialog}
 
         <nav className="flex gap-1 border-b border-slate-200 px-4">
           {tabs.map(([id, label]) => (
@@ -344,8 +344,11 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated }
                     {readOnly || !isAdmin ? (
                       <StatusBadge status={form.status} />
                     ) : (
-                      <select className="input" value={form.status} onChange={set('status')}>
-                        {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                      <select className="input" value={form.status} onChange={(e) => pickStatus(e.target.value)}>
+                        {STATUSES.filter((s) => !isNew || !REVIEW_STATUSES.includes(s.value)).map((s) => {
+                          const blocked = !isNew && s.value !== form.status && statusBlock(user, post, s.value);
+                          return <option key={s.value} value={s.value} disabled={Boolean(blocked)} title={blocked || undefined}>{s.label}{blocked ? ' (approver / assignee only)' : ''}</option>;
+                        })}
                       </select>
                     )}
                   </Field>
@@ -449,10 +452,13 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated }
                   </Field>
                   <Field label="Pubmat links (one per line)">
                     {readOnly ? <Links links={post?.pubmatLinks} /> : <textarea className="input font-mono text-xs" rows={3} value={form.pubmatLinks} onChange={set('pubmatLinks')} placeholder="https://drive.google.com/…  or  https://www.canva.com/…" />}
+                    {!readOnly && <p className="mt-1 text-[11px] text-slate-500">Pictures, videos, Google Drive files, Canva designs and YouTube links show a preview below. Share the file as “Anyone with the link” so everyone can see it.</p>}
                   </Field>
+                  <MaterialPreview links={form.pubmatLinks} />
                   <Field label="Reference link (original source)">
-                    {readOnly ? <Links links={form.referenceLink ? [form.referenceLink] : []} /> : <input className="input" value={form.referenceLink || ''} onChange={set('referenceLink')} />}
+                    {readOnly ? <Links links={form.referenceLink ? [form.referenceLink] : []} /> : <input className="input" value={form.referenceLink || ''} onChange={set('referenceLink')} placeholder="https://…" />}
                   </Field>
+                  <MaterialPreview links={form.referenceLink ? [form.referenceLink] : []} title="Preview of the reference" />
                 </div>
               )}
 
@@ -565,7 +571,7 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated }
                     <Copy className="h-4 w-4" />
                   </button>
                 )}
-                {isAdmin && post && !['FOR_APPROVAL', 'APPROVED', 'SCHEDULED', 'PUBLISHED', 'BOOSTED', 'IDEA'].includes(post.status) && (
+                {isAdmin && post && !['FOR_APPROVAL', 'APPROVED', 'SCHEDULED', 'PUBLISHED', 'BOOSTED', 'IDEA'].includes(post.status) && !statusBlock(user, post, 'FOR_APPROVAL') && (
                   <button
                     className="btn-secondary"
                     disabled={submit.isPending}

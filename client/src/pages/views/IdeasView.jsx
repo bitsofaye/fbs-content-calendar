@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Bell, BellOff, Hammer, Lightbulb, Search, Send } from 'lucide-react';
+import { Bell, BellOff, ExternalLink, Hammer, Lightbulb, Link2, Search, Send } from 'lucide-react';
 import { useBulkUpdate, useCreatePost } from '../../api/hooks';
 import { STATUS } from '../../lib/constants';
 import { EmptyState, Spinner } from '../../components/ui';
@@ -29,23 +29,27 @@ function Composer({ client }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [pillarId, setPillarId] = useState('');
-  const [attention, setAttention] = useState(true);
+  const [link, setLink] = useState('');
   const pillars = (client.pillars || []).filter((p) => p.active);
+  const badLink = link.trim() && !/^https?:\/\/\S+$/i.test(link.trim());
 
   async function submit(e) {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || badLink) return;
     await create.mutateAsync({
       clientId: client.id,
       title: title.trim(),
       storyboard: description.trim() || null,
+      referenceLink: link.trim() || null,
       pillarId: pillarId || null,
       date: null,
-      needsAttention: attention,
+      // every new idea is flagged, so the whole FBS team sees it in their notifications
+      needsAttention: true,
       placements: [],
     });
     setTitle('');
     setDescription('');
+    setLink('');
   }
 
   return (
@@ -78,16 +82,29 @@ function Composer({ client }) {
             className="input min-h-[84px]"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="What should the post say or show? Who is it for? Any example or reference link?"
+            placeholder="What should the post say or show? Who is it for?"
           />
+        </div>
+        <div className="md:col-span-2">
+          <label className="label" htmlFor="idea-link">Reference / Drive link (optional)</label>
+          <div className="relative">
+            <Link2 className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              id="idea-link"
+              className={`input pl-9 ${badLink ? 'border-red-400' : ''}`}
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              placeholder="https://drive.google.com/…  or an example post, article, Canva design…"
+            />
+          </div>
+          {badLink && <p className="mt-1 text-xs text-red-600">The link should start with https://</p>}
         </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
-          <input type="checkbox" checked={attention} onChange={(e) => setAttention(e.target.checked)} className="h-4 w-4 accent-[#921259]" />
-          <Bell className="h-4 w-4 text-brand-600" /> Notify the team — this needs attention
-        </label>
-        <button className="btn-primary ml-auto" disabled={!title.trim() || create.isPending}>
+        <p className="flex items-center gap-1.5 text-xs text-slate-500">
+          <Bell className="h-3.5 w-3.5 text-brand-600" /> The FBS team is notified automatically.
+        </p>
+        <button className="btn-primary ml-auto" disabled={!title.trim() || badLink || create.isPending}>
           <Send className="h-4 w-4" /> {create.isPending ? 'Adding…' : 'Add idea'}
         </button>
       </div>
@@ -127,6 +144,13 @@ function IdeaCard({ post, isAdmin, onOpen }) {
         </div>
       ) : (
         <p className="mt-1.5 text-sm text-slate-400 italic">No description</p>
+      )}
+      {post.referenceLink && /^https?:\/\//i.test(post.referenceLink) && (
+        <a href={post.referenceLink} target="_blank" rel="noreferrer" className="mt-2 inline-flex max-w-full items-center gap-1.5 text-xs font-medium text-brand-600 hover:underline">
+          <Link2 className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{post.referenceLink.replace(/^https?:\/\/(www\.)?/, '')}</span>
+          <ExternalLink className="h-3 w-3 shrink-0" />
+        </a>
       )}
 
       <div className="mt-auto pt-3">

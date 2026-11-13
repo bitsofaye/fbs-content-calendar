@@ -67,6 +67,10 @@ export const useClientDashboard = (key, range) =>
 export const useOverview = (options = {}) =>
   useQuery({ queryKey: ['overview'], enabled: options.enabled !== false, queryFn: async () => (await api.get('/dashboard/overview')).data });
 
+// posts where I was recently made the approver or the person assigned
+export const useNotifications = () =>
+  useQuery({ queryKey: ['notifications'], refetchInterval: 60000, queryFn: async () => (await api.get('/dashboard/notifications')).data.assigned });
+
 // ---------- mutations ----------
 
 function useInvalidatePosts() {
@@ -76,6 +80,7 @@ function useInvalidatePosts() {
     qc.invalidateQueries({ queryKey: ['post'] });
     qc.invalidateQueries({ queryKey: ['dashboard'] });
     qc.invalidateQueries({ queryKey: ['overview'] });
+    qc.invalidateQueries({ queryKey: ['notifications'] });
   };
 }
 
