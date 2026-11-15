@@ -21,40 +21,40 @@ router.get('/overview', requireAdmin, async (req, res) => {
   const today = todayISO();
   const { from, to } = monthRange(today);
   const [clients, monthCounts, awaiting, toEdit, upcoming, requests, flaggedIdeas] = await Promise.all([
-    prisma.client.findMany({ where: { active: true }, orderBy: { name: 'asc' }, select: { id: true, name: true, slug: true, brandColor: true, logoUrl: true, industry: true } }),
+    prisma.client.findMany({ where: { active: true, deletedAt: null }, orderBy: { name: 'asc' }, select: { id: true, name: true, slug: true, brandColor: true, logoUrl: true, industry: true } }),
     prisma.post.groupBy({
       by: ['clientId', 'status'],
-      where: { archivedAt: null, date: { gte: dateFromISO(from), lte: dateFromISO(to) } },
+      where: { archivedAt: null, client: { deletedAt: null }, date: { gte: dateFromISO(from), lte: dateFromISO(to) } },
       _count: { _all: true },
     }),
     prisma.post.findMany({
-      where: { archivedAt: null, status: 'FOR_APPROVAL' },
+      where: { archivedAt: null, client: { deletedAt: null }, status: 'FOR_APPROVAL' },
       include: { ...postListInclude, client: clientMini },
       orderBy: [{ date: 'asc' }],
       take: 100,
     }),
     prisma.post.findMany({
-      where: { archivedAt: null, status: { in: ['TO_EDIT', 'REJECTED'] } },
+      where: { archivedAt: null, client: { deletedAt: null }, status: { in: ['TO_EDIT', 'REJECTED'] } },
       include: { ...postListInclude, client: clientMini },
       orderBy: [{ date: 'asc' }],
       take: 100,
     }),
     prisma.post.findMany({
-      where: { archivedAt: null, date: { gte: dateFromISO(today), lte: dateFromISO(addDaysISO(today, 7)) }, status: { not: 'IDEA' } },
+      where: { archivedAt: null, client: { deletedAt: null }, date: { gte: dateFromISO(today), lte: dateFromISO(addDaysISO(today, 7)) }, status: { not: 'IDEA' } },
       include: { ...postListInclude, client: clientMini },
       orderBy: [{ date: 'asc' }, { time: 'asc' }],
       take: 200,
     }),
     // posts a client added themselves that FBS hasn't picked up yet
     prisma.post.findMany({
-      where: { archivedAt: null, createdBy: { role: 'CLIENT' }, status: { in: ['IDEA', 'IN_PROGRESS'] } },
+      where: { archivedAt: null, client: { deletedAt: null }, createdBy: { role: 'CLIENT' }, status: { in: ['IDEA', 'IN_PROGRESS'] } },
       include: { ...postListInclude, client: clientMini, createdBy: { select: { id: true, name: true } } },
       orderBy: [{ createdAt: 'desc' }],
       take: 100,
     }),
     // ideas someone flagged for the team's attention
     prisma.post.findMany({
-      where: { archivedAt: null, needsAttention: true },
+      where: { archivedAt: null, client: { deletedAt: null }, needsAttention: true },
       include: { ...postListInclude, client: clientMini },
       orderBy: [{ createdAt: 'desc' }],
       take: 100,
@@ -90,7 +90,7 @@ router.get('/notifications', async (req, res) => {
       action: 'ASSIGNED',
       createdAt: { gte: since },
       meta: { path: ['userId'], equals: req.user.id },
-      post: { archivedAt: null, ...(req.user.role === 'CLIENT' ? { clientId: req.user.clientId } : {}) },
+      post: { archivedAt: null, client: { deletedAt: null }, ...(req.user.role === 'CLIENT' ? { clientId: req.user.clientId } : {}) },
     },
     include: {
       user: { select: { id: true, name: true } },
@@ -136,7 +136,7 @@ router.get('/client/:clientId', async (req, res) => {
       _sum: { reach: true, engagement: true, reacts: true, comments: true, shares: true, linkClicks: true },
     }),
     prisma.post.count({ where: { ...base, archivedAt: null, date: null } }),
-    prisma.pillar.findMany({ where: base, select: { id: true, name: true, color: true } }),
+    prisma.pillar.findMany({ where: base, select: { id: true, name: true, color: true, icon: true } }),
   ]);
 
   const byStatus = Object.fromEntries(statusGroups.map((g) => [g.status, g._count._all]));
@@ -146,6 +146,7 @@ router.get('/client/:clientId', async (req, res) => {
       pillarId: g.pillarId,
       name: g.pillarId ? pillarById.get(g.pillarId)?.name ?? 'Unknown' : 'Uncategorized',
       color: g.pillarId ? pillarById.get(g.pillarId)?.color ?? '#94a3b8' : '#94a3b8',
+      icon: g.pillarId ? pillarById.get(g.pillarId)?.icon ?? null : null,
       count: g._count._all,
     }))
     .sort((a, b) => b.count - a.count);

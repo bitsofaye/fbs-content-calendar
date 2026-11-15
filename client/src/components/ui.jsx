@@ -70,11 +70,23 @@ export function PlatformList({ placements = [] }) {
   );
 }
 
+/** A pillar's mark: its emoji when it has one, otherwise its colour dot (`className` sizes the dot). */
+export function PillarDot({ pillar, className = 'h-2.5 w-2.5 rounded-sm', fallback = '#cbd5e1', emojiClass = 'text-[13px]' }) {
+  if (pillar?.icon) {
+    return (
+      <span className={`inline-flex shrink-0 items-center justify-center leading-none ${emojiClass}`} aria-hidden title={pillar.name}>
+        {pillar.icon}
+      </span>
+    );
+  }
+  return <span className={`shrink-0 ${className}`} style={{ background: pillar?.color || fallback }} />;
+}
+
 export function PillarTag({ pillar }) {
   if (!pillar) return <span className="text-xs text-slate-500">Uncategorized</span>;
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
-      <span className="h-2.5 w-2.5 shrink-0 rounded-sm ring-1 ring-black/10" style={{ background: pillar.color }} />
+      <PillarDot pillar={pillar} className="h-2.5 w-2.5 rounded-sm ring-1 ring-black/10" />
       <span className="truncate">{pillar.name}</span>
     </span>
   );

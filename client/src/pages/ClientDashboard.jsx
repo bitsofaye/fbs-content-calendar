@@ -8,8 +8,8 @@ import { useAuth } from '../context/AuthContext';
 import { useClient, useClientDashboard, useGenerateMonth, usePosts, useThemes, useUserOptions } from '../api/hooks';
 import { PLACEMENTS, STATUSES } from '../lib/constants';
 import { formatDate, monthBounds, monthGrid, monthKey, monthLabel, shiftMonth, todayISO, weekOf } from '../lib/dates';
-import { EmptyState, fmtNumber, FullPageSpinner, KpiTile } from '../components/ui';
-import { openClientSwitcher, usePins } from '../lib/pins';
+import { EmptyState, fmtNumber, FullPageSpinner, KpiTile, PillarDot } from '../components/ui';
+import { usePins } from '../lib/pins';
 import PostDrawer from '../components/PostDrawer';
 import PillarMix from '../components/PillarMix';
 import CalendarView from './views/CalendarView';
@@ -130,20 +130,11 @@ export default function ClientDashboard() {
         {/* three parts: client on the left, the month truly centred, actions on the right */}
         <div className="grid grid-cols-1 items-center gap-3 px-4 py-3 sm:grid-cols-[1fr_auto_1fr] sm:px-6">
           <div className="flex min-w-0 items-center gap-1">
-            {isAdmin ? (
-              <button className="group flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-left hover:bg-slate-50" onClick={openClientSwitcher} title="Switch client (Ctrl K)">
-                <span className="min-w-0">
-                  <span className="block text-lg leading-tight font-semibold tracking-tight break-words text-brand-700 sm:text-xl">{client.name}</span>
-                  <span className="block text-xs text-slate-500">{client.industry || 'Content calendar'}</span>
-                </span>
-                <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-500 group-hover:text-brand-600" />
-              </button>
-            ) : (
-              <div className="min-w-0">
-                <h1 className="text-lg leading-tight font-semibold tracking-tight break-words text-brand-700 sm:text-xl">{client.name}</h1>
-                <p className="text-xs text-slate-500">{client.industry || 'Content calendar'}</p>
-              </div>
-            )}
+            {/* the calendar stays on this client; to open another one, go back to the Dashboard */}
+            <div className="min-w-0">
+              <h1 className="text-lg leading-tight font-semibold tracking-tight break-words text-brand-700 sm:text-xl">{client.name}</h1>
+              <p className="text-xs text-slate-500">{client.industry || 'Content calendar'}</p>
+            </div>
             {isAdmin && (
               <button
                 className={`cursor-pointer rounded p-1.5 ${isPinned(client.id) ? 'text-brand-600' : 'text-slate-300 hover:text-slate-700'}`}
@@ -226,7 +217,7 @@ export default function ClientDashboard() {
             <ul className="divide-y divide-slate-100">
               {(showAllAwaiting ? d.awaiting : d.awaiting.slice(0, 5)).map((p) => (
                 <li key={p.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: p.pillar?.color || '#cbd5e1' }} />
+                  <PillarDot pillar={p.pillar} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-slate-800">{p.title}</span>
                     <span className="block text-xs text-slate-500">{p.date ? formatDate(p.date, { withYear: true }) : 'No date yet'}</span>

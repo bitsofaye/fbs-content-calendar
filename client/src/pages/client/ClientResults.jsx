@@ -4,7 +4,7 @@ import { BarChart3, ChevronLeft, ChevronRight, Heart, Link2, MessageCircle, Shar
 import { useClientDashboard, usePosts } from '../../api/hooks';
 import { FEEDBACK, PLACEMENT } from '../../lib/constants';
 import { formatDate, monthBounds, monthKey, monthLabel, shiftMonth, todayISO } from '../../lib/dates';
-import { EmptyState, fmtNumber, FullPageSpinner, KpiTile, PlacementChips } from '../../components/ui';
+import { EmptyState, fmtNumber, FullPageSpinner, KpiTile, PillarDot, PlacementChips } from '../../components/ui';
 import PillarMix from '../../components/PillarMix';
 import PostDrawer from '../../components/PostDrawer';
 import { useMyClient } from './useMyClient';
@@ -83,7 +83,7 @@ export default function ClientResults() {
                     <tr key={p.id} className="cursor-pointer hover:bg-slate-50" onClick={() => open(p)}>
                       <td className="px-4 py-2">
                         <div className="flex items-center gap-2">
-                          <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: p.pillar?.color || '#cbd5e1' }} />
+                          <PillarDot pillar={p.pillar} />
                           <span className="min-w-0">
                             <span className="block max-w-[320px] truncate font-medium text-slate-800">{p.title}</span>
                             <span className="mt-0.5 block"><PlacementChips placements={p.placements} size="xs" /></span>

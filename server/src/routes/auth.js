@@ -18,12 +18,13 @@ router.post('/login', validate(loginSchema), async (req, res) => {
   const { email, password } = req.valid.body;
   const user = await prisma.user.findUnique({
     where: { email },
-    include: { client: { select: { id: true, name: true, slug: true, brandColor: true } } },
+    include: { client: { select: { id: true, name: true, slug: true, brandColor: true, deletedAt: true } } },
   });
   // same message for unknown email and wrong password
   if (!user || !user.active || !(await bcrypt.compare(password, user.passwordHash))) {
     throw unauthorized('Incorrect email or password');
   }
+  if (user.client?.deletedAt) throw unauthorized('This company was removed from the content calendar');
   res.json({ token: signToken(user), user: publicUser(user) });
 });
 

@@ -4,7 +4,7 @@ import { useBulkArchive, useBulkDelete, useBulkUpdate, useCreatePost, usePosts }
 import { FEEDBACK, PLACEMENT, PLACEMENTS, STATUS, STATUSES } from '../../lib/constants';
 import { formatDate, monthBounds, todayISO } from '../../lib/dates';
 import { downloadCSV, toCSV } from '../../lib/csv';
-import { EmptyState, PillarTag, PlatformList, StatusBadge } from '../../components/ui';
+import { EmptyState, PillarDot, PillarTag, PlatformList, StatusBadge } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { useStatusChange } from '../../components/StatusChange';
 import { REVIEW_STATUSES, statusBlock } from '../../lib/workflow';
@@ -603,12 +603,12 @@ export default function SheetView({ client, posts, month, isAdmin, onOpen, peopl
                   <td className="px-1 py-1.5">
                     {ro ? (
                       <div className="flex items-start gap-1.5 px-2 py-1 text-[13px] leading-5 text-slate-700">
-                        <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: pillarById[p.pillarId]?.color || '#e2e8f0' }} />
+                        <span className="mt-0.5 inline-flex"><PillarDot pillar={pillarById[p.pillarId]} fallback="#e2e8f0" /></span>
                         <span className="min-w-0 break-words">{softBreaks(pillarById[p.pillarId]?.name) || 'Uncategorized'}</span>
                       </div>
                     ) : (
                       <div className="flex items-start gap-1 pl-1">
-                        <span className="mt-2.5 h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: pillarById[p.pillarId]?.color || '#e2e8f0' }} />
+                        <span className="mt-2 inline-flex"><PillarDot pillar={pillarById[p.pillarId]} fallback="#e2e8f0" /></span>
                         <div className="min-w-0 flex-1">
                           <SelectCell value={p.pillarId} options={pillarOpts} allowEmpty emptyLabel="Uncategorized" onSave={(v) => edit(p, { pillarId: v })} />
                         </div>

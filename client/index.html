@@ -8,6 +8,13 @@
     <link rel="preload" href="/fonts/poppins-400.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/poppins-600.woff2" as="font" type="font/woff2" crossorigin />
     <title>Content Calendar</title>
+    <script>
+      // night mode before the first paint (no white flash); lib/darkMode.js keeps it in sync afterwards
+      try {
+        var t = localStorage.getItem('cc_theme');
+        if (t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

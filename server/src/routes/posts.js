@@ -111,6 +111,7 @@ router.get('/', validate(postListQuery, 'query'), async (req, res) => {
   const clientId = resolveClientId(req.user, q.clientId);
   const where = { archivedAt: q.archived === 'true' ? { not: null } : null };
   if (clientId) where.clientId = clientId;
+  else where.client = { deletedAt: null };
   if (q.undated === 'true') where.date = null;
   else if (q.from || q.to) where.date = { ...(q.from ? { gte: dateFromISO(q.from) } : {}), ...(q.to ? { lte: dateFromISO(q.to) } : {}) };
   else if (q.undated === 'false') where.date = { not: null };

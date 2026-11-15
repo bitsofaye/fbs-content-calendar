@@ -6,16 +6,17 @@ import { api } from '../../lib/api';
 import { WEEKDAYS } from '../../lib/constants';
 import { monthName } from '../../lib/dates';
 import { Spinner } from '../../components/ui';
+import EmojiPicker from '../../components/EmojiPicker';
 
 const PILLAR_KEYS = ['pillars', 'client', 'posts', 'dashboard'];
 
 const DRAFT_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6', '#ec4899'];
 let draftSeq = 0;
-const newDraft = (i = 0) => ({ key: `d${++draftSeq}`, name: '', color: DRAFT_COLORS[i % DRAFT_COLORS.length], weekday: null });
+const newDraft = (i = 0) => ({ key: `d${++draftSeq}`, name: '', color: DRAFT_COLORS[i % DRAFT_COLORS.length], icon: null, weekday: null });
 
-const FIELDS = ['name', 'color', 'weekday', 'active', 'sortOrder'];
-const pick = (f) => ({ name: f.name.trim(), color: f.color, weekday: f.weekday, sortOrder: f.sortOrder, active: f.active });
-const isDirty = (f, pillar) => FIELDS.some((k) => f[k] !== pillar[k]);
+const FIELDS = ['name', 'color', 'icon', 'weekday', 'active', 'sortOrder'];
+const pick = (f) => ({ name: f.name.trim(), color: f.color, icon: f.icon || null, weekday: f.weekday, sortOrder: f.sortOrder, active: f.active });
+const isDirty = (f, pillar) => FIELDS.some((k) => (f[k] ?? null) !== (pillar[k] ?? null));
 
 // The row's values live in the page (so "Save all" can save every row at once)
 function PillarRow({ pillar, f, setF }) {
@@ -26,6 +27,9 @@ function PillarRow({ pillar, f, setF }) {
     <tr className={f.active ? '' : 'opacity-50'}>
       <td className="px-3 py-1.5">
         <input type="color" className="h-8 w-10 cursor-pointer rounded border border-slate-300" value={f.color} onChange={(e) => setF({ ...f, color: e.target.value })} />
+      </td>
+      <td className="px-3 py-1.5">
+        <EmojiPicker value={f.icon} color={f.color} onChange={(icon) => setF({ ...f, icon })} />
       </td>
       <td className="px-3 py-1.5"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></td>
       <td className="px-3 py-1.5">
@@ -128,7 +132,7 @@ export default function PillarsPage() {
       let order = pillars?.length || 0;
       await Promise.all([
         ...changed.map((p) => api.patch(`/pillars/${p.id}`, pick(edits[p.id]))),
-        ...toAdd.map((d) => api.post('/pillars', { clientId: cid, name: d.name.trim(), color: d.color, weekday: d.weekday, sortOrder: ++order })),
+        ...toAdd.map((d) => api.post('/pillars', { clientId: cid, name: d.name.trim(), color: d.color, icon: d.icon, weekday: d.weekday, sortOrder: ++order })),
       ]);
       return { n: changed.length + toAdd.length };
     },
@@ -151,7 +155,7 @@ export default function PillarsPage() {
           <div className="min-w-0 flex-1">
             <h2 className="font-semibold text-brand-700">Content pillars</h2>
             <p className="text-xs text-slate-500">
-              The color key of the calendar. Give a pillar a weekday (e.g. Motivational Monday) to show it in the calendar header and to use “Generate month”.
+              The color key of the calendar. Add an icon (emoji) to show it beside the pillar name on the calendar, content plan and board. Give a pillar a weekday (e.g. Motivational Monday) to show it in the calendar header and to use “Generate month”.
             </p>
           </div>
           {pendingCount > 0 && <span className="text-xs text-amber-700">{pendingCount} unsaved</span>}
@@ -174,6 +178,7 @@ export default function PillarsPage() {
             <thead className="text-left text-xs text-slate-500 uppercase">
               <tr>
                 <th className="px-3 py-2">Color</th>
+                <th className="px-3 py-2">Icon</th>
                 <th className="px-3 py-2">Name</th>
                 <th className="px-3 py-2">Weekday slot</th>
                 <th className="px-3 py-2">Order</th>
@@ -191,6 +196,7 @@ export default function PillarsPage() {
                 return (
                   <tr key={d.key} className="bg-slate-50/60">
                     <td className="px-3 py-2"><input type="color" className="h-8 w-10 cursor-pointer rounded border border-slate-300" value={d.color} onChange={(e) => setD({ color: e.target.value })} /></td>
+                    <td className="px-3 py-2"><EmojiPicker value={d.icon} color={d.color} onChange={(icon) => setD({ icon })} /></td>
                     <td className="px-3 py-2"><input className="input" placeholder="New pillar name" value={d.name} onChange={(e) => setD({ name: e.target.value })} /></td>
                     <td className="px-3 py-2">
                       <select className="input" value={d.weekday ?? ''} onChange={(e) => setD({ weekday: e.target.value === '' ? null : Number(e.target.value) })}>
@@ -206,7 +212,7 @@ export default function PillarsPage() {
                           title="Add this pillar now"
                           disabled={!d.name.trim() || add.isPending}
                           onClick={async () => {
-                            await add.mutateAsync({ clientId: cid, name: d.name.trim(), color: d.color, weekday: d.weekday, sortOrder: (pillars?.length || 0) + 1 });
+                            await add.mutateAsync({ clientId: cid, name: d.name.trim(), color: d.color, icon: d.icon, weekday: d.weekday, sortOrder: (pillars?.length || 0) + 1 });
                             setDrafts((ds) => (ds.length > 1 ? ds.filter((x) => x.key !== d.key) : [newDraft()]));
                           }}
                         >
@@ -223,7 +229,7 @@ export default function PillarsPage() {
                 );
               })}
               <tr>
-                <td className="px-3 py-2" colSpan={7}>
+                <td className="px-3 py-2" colSpan={8}>
                   <button className="btn-ghost text-xs text-brand-700" onClick={() => setDrafts((ds) => [...ds, newDraft(ds.length)])}>
                     <Plus className="h-3.5 w-3.5" /> Add another pillar row
                   </button>

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Archive, ArchiveRestore, ExternalLink, Pencil, Plus, Search } from 'lucide-react';
-import { useAdminMutation, useClients } from '../../api/hooks';
+import { Archive, ArchiveRestore, ExternalLink, Pencil, Plus, RotateCcw, Search, Trash2 } from 'lucide-react';
+import { useAdminMutation, useClients, useClientTrash } from '../../api/hooks';
 import { api } from '../../lib/api';
-import { FullPageSpinner, Modal } from '../../components/ui';
+import { FullPageSpinner, Modal, Spinner } from '../../components/ui';
+import { formatDate } from '../../lib/dates';
 
 const blank = { name: '', slug: '', brandColor: '#921259', industry: '', logoUrl: '', withDefaultPillars: true };
 
@@ -71,11 +72,90 @@ function ClientForm({ initial, onClose }) {
   );
 }
 
+const TRASH_KEYS = ['clients', 'client', 'overview', 'clientTrash', 'posts'];
+const daysLeft = (iso) => Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000));
+
+// Clients moved to the Trash: restore them, or delete them for good. Anything left is removed after 30 days.
+function TrashList() {
+  const { data, isLoading } = useClientTrash();
+  const restore = useAdminMutation((c) => api.post(`/clients/${c.id}/restore`), TRASH_KEYS, 'Client restored');
+  const purge = useAdminMutation((c) => api.delete(`/clients/${c.id}/permanent`), TRASH_KEYS, 'Client deleted for good');
+  if (isLoading) return <div className="card flex justify-center p-8"><Spinner /></div>;
+  const list = data?.clients || [];
+  return (
+    <div className="card overflow-x-auto">
+      <div className="border-b border-slate-100 px-4 py-3 text-xs text-slate-500">
+        Deleted clients stay here for <b>{data?.days ?? 30} days</b>. While here, their calendar is hidden and their logins can’t sign in. Restore a client to bring everything back; otherwise it is deleted for good on the date shown.
+      </div>
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50 text-left text-xs text-slate-500 uppercase">
+          <tr>
+            <th className="px-4 py-2">Client</th>
+            <th className="px-4 py-2">Deleted on</th>
+            <th className="px-4 py-2">Deleted for good on</th>
+            <th className="px-4 py-2 text-right">Posts</th>
+            <th className="px-4 py-2 text-right">Logins</th>
+            <th className="px-4 py-2" />
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {list.map((c) => {
+            const left = daysLeft(c.purgeAt);
+            return (
+              <tr key={c.id}>
+                <td className="px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full" style={{ background: c.brandColor }} />
+                    <span className="font-medium">{c.name}</span>
+                  </div>
+                </td>
+                <td className="px-4 py-2.5 text-slate-600">{formatDate(c.deletedAt.slice(0, 10), { withYear: true })}</td>
+                <td className="px-4 py-2.5 text-slate-600">
+                  {formatDate(c.purgeAt.slice(0, 10), { withYear: true })}
+                  <span className={`ml-2 rounded-full px-1.5 text-[11px] ${left <= 5 ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600'}`}>
+                    {left} day{left === 1 ? '' : 's'} left
+                  </span>
+                </td>
+                <td className="px-4 py-2.5 text-right tabular-nums">{c._count.posts}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums">{c._count.users}</td>
+                <td className="px-4 py-2.5">
+                  <div className="flex justify-end gap-1">
+                    <button className="btn-secondary px-2.5 py-1 text-xs" disabled={restore.isPending} onClick={() => restore.mutate(c)}>
+                      <RotateCcw className="h-3.5 w-3.5" /> Restore
+                    </button>
+                    <button
+                      className="btn-ghost px-2.5 py-1 text-xs text-red-600"
+                      disabled={purge.isPending}
+                      onClick={() =>
+                        confirm(`Delete ${c.name} for good now? Its ${c._count.posts} posts, pillars, Drive links and client logins are removed. This cannot be undone.`) &&
+                        purge.mutate(c)
+                      }
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Delete for good
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+          {!list.length && (
+            <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500">The Trash is empty.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function ClientsPage() {
   const [sp, setSp] = useSearchParams();
   const [showArchived, setShowArchived] = useState(false);
   const [q, setQ] = useState('');
   const { data: clients, isLoading } = useClients({ includeArchived: showArchived ? 'true' : undefined });
+  const { data: trash } = useClientTrash();
+  const view = sp.get('view') === 'trash' ? 'trash' : 'list';
+  const setView = (v) => setSp(v === 'trash' ? { view: 'trash' } : {}, { replace: true });
+  const moveToTrash = useAdminMutation((c) => api.post(`/clients/${c.id}/trash`), TRASH_KEYS, (r) => `${r.data.client.name} moved to the Trash`);
   const [editing, setEditing] = useState(sp.get('new') ? {} : null);
   const toggle = useAdminMutation(
     async (c) => (c.active ? api.delete(`/clients/${c.id}`) : api.patch(`/clients/${c.id}`, { active: true })),
@@ -99,6 +179,21 @@ export default function ClientsPage() {
         </label>
         <button className="btn-primary" onClick={() => setEditing({})}><Plus className="h-4 w-4" /> Add client</button>
       </div>
+      <div className="flex w-fit gap-1 rounded-xl border border-slate-200 bg-white p-1 text-sm">
+        {[['list', 'Clients', clients?.length], ['trash', 'Trash', trash?.clients?.length]].map(([id, label, n]) => (
+          <button
+            key={id}
+            onClick={() => setView(id)}
+            className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 ${view === id ? 'bg-brand-700 font-medium text-white shadow-sm' : 'text-slate-600 hover:bg-brand-50'}`}
+          >
+            {id === 'trash' && <Trash2 className="h-3.5 w-3.5" />} {label}
+            {n ? <span className={`rounded-full px-1.5 text-[11px] tabular-nums ${view === id ? 'bg-white/20' : 'bg-slate-100 text-slate-600'}`}>{n}</span> : null}
+          </button>
+        ))}
+      </div>
+      {view === 'trash' ? (
+        <TrashList />
+      ) : (
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs text-slate-500 uppercase">
@@ -137,6 +232,17 @@ export default function ClientsPage() {
                     >
                       {c.active ? <Archive className="h-4 w-4" /> : <ArchiveRestore className="h-4 w-4" />}
                     </button>
+                    <button
+                      className="btn-ghost px-2 text-red-600"
+                      title="Delete (kept in the Trash for 30 days)"
+                      disabled={moveToTrash.isPending}
+                      onClick={() =>
+                        confirm(`Delete ${c.name}? It moves to the Trash: its calendar is hidden and its logins can’t sign in. You can restore it within 30 days; after that it is deleted for good.`) &&
+                        moveToTrash.mutate(c)
+                      }
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -147,6 +253,7 @@ export default function ClientsPage() {
           </tbody>
         </table>
       </div>
+      )}
       {editing && (
         <ClientForm
           initial={editing.id ? editing : null}

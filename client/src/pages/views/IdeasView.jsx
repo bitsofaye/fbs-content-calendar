@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Bell, BellOff, ExternalLink, Hammer, Lightbulb, Link2, Search, Send } from 'lucide-react';
 import { useBulkUpdate, useCreatePost } from '../../api/hooks';
 import { STATUS } from '../../lib/constants';
-import { EmptyState, Spinner } from '../../components/ui';
+import { EmptyState, PillarDot, Spinner } from '../../components/ui';
 
 // How far an idea has come. Ideas are posts without a date: a new one is status IDEA,
 // and it stays in the bank (with its progress shown) until someone gives it a date.
@@ -157,7 +157,7 @@ function IdeaCard({ post, isAdmin, onOpen }) {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-100 pt-3 text-xs text-slate-500">
           {post.pillar ? (
             <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full" style={{ background: post.pillar.color }} /> {post.pillar.name}
+              <PillarDot pillar={post.pillar} className="h-2 w-2 rounded-full" emojiClass="text-sm" /> {post.pillar.name}
             </span>
           ) : (
             <span>No pillar yet</span>

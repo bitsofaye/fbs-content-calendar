@@ -87,6 +87,7 @@ export const pillarCreate = z.object({
   clientId: id,
   name: z.string().trim().min(1).max(120),
   color: color.optional(),
+  icon: z.string().trim().max(16).nullable().optional(),
   weekday: z.number().int().min(0).max(6).nullable().optional(),
   sortOrder: z.number().int().optional(),
   active: z.boolean().optional(),

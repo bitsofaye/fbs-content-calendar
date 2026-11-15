@@ -1,3 +1,5 @@
+import { PillarDot } from './ui';
+
 // A thin stacked bar showing how this month's posts spread across the content pillars
 export default function PillarMix({ mix, total, title = 'Pillar mix this month' }) {
   if (!total) return null;
@@ -15,7 +17,7 @@ export default function PillarMix({ mix, total, title = 'Pillar mix this month' 
       <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
         {mix.map((m) => (
           <li key={m.name} className="flex items-center gap-1.5 text-xs text-slate-600">
-            <span className="h-2.5 w-2.5 rounded-sm ring-1 ring-black/10" style={{ background: m.color }} />
+            <PillarDot pillar={m} className="h-2.5 w-2.5 rounded-sm ring-1 ring-black/10" />
             {m.name} <span className="text-slate-500 tabular-nums">{m.count}</span>
           </li>
         ))}

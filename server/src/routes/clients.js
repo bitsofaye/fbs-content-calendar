@@ -4,6 +4,7 @@ import { notFound, slugify } from '../lib/http.js';
 import { clientCreate, clientUpdate } from '../lib/schemas.js';
 import { assertClientAccess, requireAdmin } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { deleteClientForever, purgeTrash, TRASH_DAYS } from '../lib/trash.js';
 
 const router = Router();
 
@@ -25,16 +26,17 @@ async function uniqueSlug(base, excludeId) {
   }
 }
 
+// clients in the Trash are hidden everywhere except the Trash list
 async function findClient(key) {
-  return prisma.client.findFirst({ where: { OR: [{ id: key }, { slug: key }] } });
+  return prisma.client.findFirst({ where: { deletedAt: null, OR: [{ id: key }, { slug: key }] } });
 }
 
 router.get('/', async (req, res) => {
   const where =
     req.user.role === 'ADMIN'
       ? req.query.includeArchived === 'true'
-        ? {}
-        : { active: true }
+        ? { deletedAt: null }
+        : { active: true, deletedAt: null }
       : { id: req.user.clientId ?? '__none__' };
   const clients = await prisma.client.findMany({
     where,
@@ -42,6 +44,43 @@ router.get('/', async (req, res) => {
     include: { _count: { select: { posts: true, users: true, pillars: true } } },
   });
   res.json({ clients });
+});
+
+// ---------- Trash: deleted clients are kept for 30 days, then removed for good ----------
+
+router.get('/trash', requireAdmin, async (_req, res) => {
+  await purgeTrash();
+  const clients = await prisma.client.findMany({
+    where: { deletedAt: { not: null } },
+    orderBy: { deletedAt: 'desc' },
+    include: { _count: { select: { posts: true, users: true, pillars: true } } },
+  });
+  res.json({
+    days: TRASH_DAYS,
+    clients: clients.map((c) => ({ ...c, purgeAt: new Date(c.deletedAt.getTime() + TRASH_DAYS * 86400000) })),
+  });
+});
+
+router.post('/:id/trash', requireAdmin, async (req, res) => {
+  const existing = await prisma.client.findFirst({ where: { id: req.params.id, deletedAt: null } });
+  if (!existing) throw notFound('Client not found');
+  const client = await prisma.client.update({ where: { id: existing.id }, data: { deletedAt: new Date() } });
+  res.json({ client });
+});
+
+router.post('/:id/restore', requireAdmin, async (req, res) => {
+  const existing = await prisma.client.findFirst({ where: { id: req.params.id, deletedAt: { not: null } } });
+  if (!existing) throw notFound('This client is not in the Trash');
+  const client = await prisma.client.update({ where: { id: existing.id }, data: { deletedAt: null } });
+  res.json({ client });
+});
+
+// Delete for good, right away (only from the Trash)
+router.delete('/:id/permanent', requireAdmin, async (req, res) => {
+  const existing = await prisma.client.findFirst({ where: { id: req.params.id, deletedAt: { not: null } } });
+  if (!existing) throw notFound('Only clients in the Trash can be deleted for good');
+  await deleteClientForever(existing.id);
+  res.json({ ok: true });
 });
 
 router.get('/:key', async (req, res) => {

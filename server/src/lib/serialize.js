@@ -22,7 +22,7 @@ export function publicUser(u) {
 }
 
 export const postListInclude = {
-  pillar: { select: { id: true, name: true, color: true } },
+  pillar: { select: { id: true, name: true, color: true, icon: true } },
   approver: { select: { id: true, name: true } },
   assignee: { select: { id: true, name: true } },
   createdBy: { select: { id: true, name: true, role: true } },

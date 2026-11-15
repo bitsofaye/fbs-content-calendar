@@ -5,7 +5,7 @@ import { useBulkUpdate } from '../../api/hooks';
 import { WEEKDAYS } from '../../lib/constants';
 import { monthGrid, todayISO, weekday, weekOf } from '../../lib/dates';
 import { PH_HOLIDAYS } from '../../lib/holidays';
-import { PlacementChips, StatusDot } from '../../components/ui';
+import { PillarDot, PlacementChips, StatusDot } from '../../components/ui';
 
 function tint(hex, alpha = 0.18) {
   const h = (hex || '#94a3b8').replace('#', '');
@@ -43,6 +43,7 @@ function PostChip({ post, onOpen, draggable, compact }) {
         <span className={`min-w-0 flex-1 ${compact ? 'line-clamp-2' : 'line-clamp-3'}`}>
           {post.kind === 'AD' && <b className="text-fuchsia-700">AD · </b>}
           {post.time && <span className="text-slate-500">{post.time} </span>}
+          {post.pillar?.icon && <span className="mr-0.5" aria-hidden>{post.pillar.icon}</span>}
           {post.title}
         </span>
       </div>
@@ -206,7 +207,7 @@ export default function CalendarView({ client, posts, ideas, month, day, isAdmin
           <span className="font-semibold tracking-wide text-slate-500 uppercase">Key:</span>
           {legend.map((p) => (
             <span key={p.id} className="inline-flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded-sm ring-1 ring-black/10" style={{ background: p.color }} />
+              <PillarDot pillar={p} className="h-3 w-3 rounded-sm ring-1 ring-black/10" emojiClass="text-sm" />
               {p.name}
             </span>
           ))}
@@ -221,7 +222,7 @@ export default function CalendarView({ client, posts, ideas, month, day, isAdmin
                   {w}
                   {weekdayPillars[i] && (
                     <span className="mt-0.5 flex items-center gap-1 text-[10px] font-medium tracking-normal text-slate-500 normal-case">
-                      <span className="h-2 w-2 rounded-sm" style={{ background: weekdayPillars[i].color }} />
+                      <PillarDot pillar={weekdayPillars[i]} className="h-2 w-2 rounded-sm" emojiClass="text-xs" />
                       <span className="truncate">{weekdayPillars[i].name}</span>
                     </span>
                   )}

@@ -23,7 +23,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <BrowserRouter>
         <AuthProvider>
           <App />
-          <Toaster position="bottom-right" toastOptions={{ duration: 3000, style: { fontSize: '14px' } }} />
+          <Toaster position="bottom-right" toastOptions={{ duration: 3000, style: { fontSize: '14px', background: 'var(--color-white)', color: 'var(--color-slate-800)', border: '1px solid var(--color-slate-200)' } }} />
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

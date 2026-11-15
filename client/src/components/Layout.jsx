@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import {
-  ArrowLeft, BarChart3, Bell, CalendarDays, Inbox, CheckSquare, ChevronDown, ChevronRight, ChevronsUpDown, Columns3, FileSpreadsheet, FolderOpen, LayoutDashboard, Lightbulb, LogOut, Menu, Rows3, Search, Settings2, Table2, Tags,
+  ArrowLeft, BarChart3, Bell, CalendarDays, Inbox, CheckSquare, ChevronDown, ChevronRight, ChevronsUpDown, Columns3, FileSpreadsheet, FolderOpen, LayoutDashboard, Lightbulb, LogOut, Menu, Moon, Rows3, Search, Settings2, Sun, Table2, Tags,
   UserCircle, Users, X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,7 @@ import { openClientSwitcher, usePins } from '../lib/pins';
 import { useWorkspace } from '../lib/workspace';
 import ClientSwitcher from './ClientSwitcher';
 import { useBrandTheme } from '../lib/theme';
+import { useTheme } from '../lib/darkMode';
 
 const navCls = ({ isActive }) =>
   `flex items-center gap-2.5 rounded-lg border-l-[3px] px-2.5 py-1.5 text-sm transition-colors ${
@@ -61,49 +62,27 @@ function CalendarLinks({ slug, showBoard, ideaAlerts = 0 }) {
   );
 }
 
-// Inside a calendar: the client's name pinned on top, and only that calendar's buttons.
-// The Dashboard link (or the Dashboard icon in the top bar) brings back the full menu.
-function CalendarNav({ slug, isAdmin, clients, user, onNavigate }) {
+// Inside a calendar: the client's name stays pinned on top and only that calendar's buttons show.
+// The one way back to the system menu is the Dashboard (here, or the Dashboard icon in the top bar).
+function CalendarNav({ slug, isAdmin, clients, user }) {
   const { data: overview } = useOverview({ enabled: isAdmin });
   const client = isAdmin ? clients.find((c) => c.slug === slug) : user?.client;
   const name = client?.name || (isAdmin ? '…' : '');
   const ideaAlerts = isAdmin && client ? (overview?.ideasNeedingAttention || []).filter((p) => p.client.id === client.id).length : 0;
-  const switcher = (e) => {
-    e.stopPropagation();
-    onNavigate?.();
-    openClientSwitcher();
-  };
   return (
     <>
+      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3" style={{ borderLeft: `4px solid ${client?.brandColor || '#cbd5e1'}` }}>
+        <div className="eyebrow">{isAdmin ? (client?.slug === 'fbs' ? 'FBS calendar' : 'Client calendar') : 'My calendar'}</div>
+        <div className="mt-1 text-sm leading-snug font-semibold break-words text-slate-800">{name}</div>
+        {client?.industry && <div className="text-[11px] text-slate-500">{client.industry}</div>}
+      </div>
+      <CalendarLinks slug={slug} showBoard={isAdmin} ideaAlerts={ideaAlerts} />
       <Link
         to={isAdmin ? '/admin' : '/overview'}
-        className="flex items-center gap-2 rounded-md px-2.5 py-1 text-xs font-medium text-slate-500 hover:bg-brand-50 hover:text-brand-700"
+        className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-brand-50 hover:text-brand-700"
       >
-        <ArrowLeft className="h-3.5 w-3.5" /> Dashboard &amp; menu
+        <LayoutDashboard className="h-4 w-4" /> Back to Dashboard
       </Link>
-      <div>
-        <div className={sectionCls}>{isAdmin ? 'Calendar' : 'My calendar'}</div>
-        {isAdmin ? (
-          <button
-            onClick={switcher}
-            className="mb-1.5 flex w-full cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2.5 text-left hover:bg-slate-100"
-            title={`Switch calendar (${isMac ? '⌘' : 'Ctrl'} K)`}
-          >
-            <ClientDot color={client?.brandColor || '#cbd5e1'} />
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm leading-snug font-semibold break-words text-slate-800">{name}</span>
-              <span className="block text-[11px] text-slate-500">{client?.slug === 'fbs' ? 'Our own calendar' : client?.industry || 'Client'}</span>
-            </span>
-            <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-500" />
-          </button>
-        ) : (
-          <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2.5">
-            <ClientDot color={client?.brandColor || '#cbd5e1'} />
-            <span className="min-w-0 text-sm leading-snug font-semibold break-words text-slate-800">{name}</span>
-          </div>
-        )}
-        <CalendarLinks slug={slug} showBoard={isAdmin} ideaAlerts={ideaAlerts} />
-      </div>
     </>
   );
 }
@@ -226,7 +205,7 @@ function Sidebar({ onNavigate }) {
 
       <nav className="sidebar-scroll flex-1 space-y-4 overflow-y-auto px-3 py-3" onClick={onNavigate}>
         {calendarSlug ? (
-          <CalendarNav slug={calendarSlug} isAdmin={isAdmin} clients={clients} user={user} onNavigate={onNavigate} />
+          <CalendarNav slug={calendarSlug} isAdmin={isAdmin} clients={clients} user={user} />
         ) : isAdmin ? (
           <AdminNav user={user} clients={clients} onNavigate={onNavigate} />
         ) : (
@@ -235,13 +214,24 @@ function Sidebar({ onNavigate }) {
       </nav>
 
       <div className="border-t border-slate-100 px-3 py-2">
-        <NavLink to="/account" className={navCls} onClick={onNavigate}>
-          <UserCircle className="h-4 w-4" />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate">{user?.name}</span>
-            <span className="block text-[11px] opacity-70">{isAdmin ? 'FBS team' : 'Client'}</span>
-          </span>
-        </NavLink>
+        {calendarSlug ? (
+          // inside a calendar the account page is not offered (it belongs to the system menu)
+          <div className="flex items-center gap-2.5 px-2.5 py-1.5 text-sm text-slate-600">
+            <UserCircle className="h-4 w-4" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate">{user?.name}</span>
+              <span className="block text-[11px] opacity-70">{isAdmin ? 'FBS team' : 'Client'}</span>
+            </span>
+          </div>
+        ) : (
+          <NavLink to="/account" className={navCls} onClick={onNavigate}>
+            <UserCircle className="h-4 w-4" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate">{user?.name}</span>
+              <span className="block text-[11px] opacity-70">{isAdmin ? 'FBS team' : 'Client'}</span>
+            </span>
+          </NavLink>
+        )}
         <button onClick={logout} className="mt-1 flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-800">
           <LogOut className="h-4 w-4" /> Sign out
         </button>
@@ -276,6 +266,17 @@ function useTrail(clients, dashboardPath) {
 }
 
 // Bell in the top bar: what needs someone right now, newest first
+// Night / day mode switch in the top bar (same for FBS and client logins)
+function ThemeToggle() {
+  const [theme, toggle] = useTheme();
+  const dark = theme === 'dark';
+  return (
+    <button className="btn-ghost h-8 w-8 p-0" onClick={toggle} aria-label={dark ? 'Switch to day mode' : 'Switch to night mode'} title={dark ? 'Day mode' : 'Night mode'}>
+      {dark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+    </button>
+  );
+}
+
 function NotificationBell() {
   const { isAdmin, user } = useAuth();
   const [open, setOpen] = useState(false);
@@ -390,6 +391,8 @@ function TopBar({ onMenu, menuOpen, onSearch }) {
   const dashboardPath = isAdmin ? '/admin' : '/overview';
   const trail = useTrail(clients, dashboardPath);
   const onDashboard = pathname === dashboardPath;
+  // inside a calendar only the Dashboard leads back to the system pages (no Back, no client search)
+  const inCalendar = pathname.startsWith('/c/');
   // go back inside the app when there is history, otherwise to the dashboard
   const canGoBack = typeof window !== 'undefined' && (window.history.state?.idx ?? 0) > 0;
   const back = () => (canGoBack ? navigate(-1) : navigate(dashboardPath));
@@ -399,12 +402,12 @@ function TopBar({ onMenu, menuOpen, onSearch }) {
       <button className="btn-ghost p-1.5 lg:hidden" onClick={onMenu} aria-label="Open menu">
         {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
-      {!onDashboard && (
+      {!onDashboard && !inCalendar && (
         <button className="btn-ghost h-8 w-8 p-0" onClick={back} title="Back" aria-label="Back">
           <ArrowLeft className="h-[18px] w-[18px]" />
         </button>
       )}
-      {!onDashboard && <span className="mx-1 hidden h-5 w-px bg-slate-200 sm:block" />}
+      {!onDashboard && !inCalendar && <span className="mx-1 hidden h-5 w-px bg-slate-200 sm:block" />}
       <nav aria-label="You are here" className="flex min-w-0 flex-1 items-center gap-1 text-sm">
         {/* on the dashboard itself the label says where you are; elsewhere it's just the icon */}
         {onDashboard ? (
@@ -429,8 +432,9 @@ function TopBar({ onMenu, menuOpen, onSearch }) {
           </span>
         ))}
       </nav>
+      <ThemeToggle />
       <NotificationBell />
-      {onSearch && (
+      {onSearch && !inCalendar && (
         <button className="btn-ghost gap-2 px-2 py-1 text-sm text-slate-500" onClick={onSearch} aria-label="Find a client">
           <Search className="h-4 w-4" />
           <span className="hidden md:inline">Find a client</span>
@@ -501,7 +505,7 @@ export default function Layout() {
     if (!isAdmin) return;
     const onOpen = () => setSwitcher(true);
     const onKey = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && !window.location.pathname.startsWith('/c/')) {
         e.preventDefault();
         setSwitcher(true);
       }

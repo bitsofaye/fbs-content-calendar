@@ -71,6 +71,10 @@ export const useOverview = (options = {}) =>
 export const useNotifications = () =>
   useQuery({ queryKey: ['notifications'], refetchInterval: 60000, queryFn: async () => (await api.get('/dashboard/notifications')).data.assigned });
 
+// clients in the Trash (admins); deleted for good after `days`
+export const useClientTrash = (options = {}) =>
+  useQuery({ queryKey: ['clientTrash'], enabled: options.enabled !== false, queryFn: async () => (await api.get('/clients/trash')).data });
+
 // a client's shared Google Drive folders / files
 export const useDriveLinks = (clientId) =>
   useQuery({

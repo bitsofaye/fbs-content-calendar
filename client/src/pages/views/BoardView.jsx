@@ -4,7 +4,7 @@ import { ArrowDownToLine, CalendarDays, GripVertical, MessageSquare } from 'luci
 import { useStatusChange } from '../../components/StatusChange';
 import { STATUS } from '../../lib/constants';
 import { formatDate } from '../../lib/dates';
-import { PlacementChips } from '../../components/ui';
+import { PillarDot, PlacementChips } from '../../components/ui';
 
 // The six stages of a post, left to right. Each status belongs to exactly one column;
 // dropping a card on a column gives it that column's main status.
@@ -45,7 +45,7 @@ function CardBody({ post, draggable }) {
         </span>
         {post.pillar && (
           <span className="inline-flex min-w-0 items-center gap-1.5">
-            <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: post.pillar.color }} />
+            <PillarDot pillar={post.pillar} className="h-2 w-2 rounded-full" emojiClass="text-xs" />
             <span className="truncate">{post.pillar.name}</span>
           </span>
         )}
@@ -92,7 +92,7 @@ function Column({ column, posts, onOpen, isAdmin, dragging, fromHere }) {
       className={`flex min-w-[180px] flex-1 basis-0 flex-col rounded-2xl transition-all duration-150 ${
         target ? 'bg-white ring-2' : dragging && !fromHere ? 'bg-white/60 outline-2 -outline-offset-2 outline-dashed outline-slate-300' : 'bg-white/60 ring-1 ring-slate-200/80'
       }`}
-      style={target ? { '--tw-ring-color': column.color, background: `color-mix(in srgb, ${column.color} 7%, white)` } : undefined}
+      style={target ? { '--tw-ring-color': column.color, background: `color-mix(in srgb, ${column.color} 7%, var(--color-white))` } : undefined}
     >
       <header className="flex items-center gap-2 px-3.5 pt-3.5 pb-2.5">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: column.color }} />

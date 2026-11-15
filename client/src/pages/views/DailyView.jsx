@@ -7,7 +7,7 @@ import { canReviewPost, statusBlock } from '../../lib/workflow';
 import { PLACEMENT, STATUS } from '../../lib/constants';
 import { addDays, formatDate, todayISO, weekday, weekOf } from '../../lib/dates';
 import { PH_HOLIDAYS } from '../../lib/holidays';
-import { EmptyState, PlatformList, StatusBadge } from '../../components/ui';
+import { EmptyState, PillarDot, PlatformList, StatusBadge } from '../../components/ui';
 
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -71,7 +71,7 @@ function PostPreview({ post, client, isAdmin, onOpen }) {
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
             {post.pillar ? (
               <span className="inline-flex items-center gap-1.5 font-medium text-slate-600">
-                <span className="h-2 w-2 rounded-full" style={{ background: post.pillar.color }} /> {post.pillar.name}
+                <PillarDot pillar={post.pillar} className="h-2 w-2 rounded-full" emojiClass="text-sm" /> {post.pillar.name}
               </span>
             ) : (
               <span>Uncategorized</span>

@@ -3,11 +3,9 @@ import { useEffect } from 'react';
 // The FBS brand colour. Its own calendar keeps the exact hand-picked FBS palette from index.css.
 export const FBS_COLOR = '#921259';
 
-const VARS = ['50', '100', '200', '500', '600', '700', '800', '900'].map((k) => `--color-brand-${k}`).concat('--color-canvas');
-
 const mix = (hex, other, pct) => `color-mix(in srgb, ${hex} ${pct}%, ${other})`;
 
-/** A full set of theme shades worked out from one client colour. */
+/** A full set of day-mode theme shades worked out from one client colour. */
 export function paletteFrom(hex) {
   return {
     '--color-brand-50': mix(hex, 'white', 7), // soft tint: hovers, unselected pills
@@ -23,17 +21,23 @@ export function paletteFrom(hex) {
 }
 
 const isHex = (c) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c);
+const STYLE_ID = 'cc-client-brand';
 
 /**
- * Colours the whole app in a client's brand colour while their calendar is open.
+ * Colours the whole app in a client's brand colour while their login is used.
+ * Day mode gets the shades above; night mode works its shades out from --brand-base (see index.css).
  * FBS (and pages that belong to no client) use the default FBS burgundy palette.
  */
 export function useBrandTheme(color) {
   const key = isHex(color) && color.toLowerCase() !== FBS_COLOR ? color.toLowerCase() : null;
   useEffect(() => {
-    const root = document.documentElement.style;
-    if (key) for (const [k, v] of Object.entries(paletteFrom(key))) root.setProperty(k, v);
-    else VARS.forEach((k) => root.removeProperty(k));
-    return () => VARS.forEach((k) => root.removeProperty(k));
+    document.getElementById(STYLE_ID)?.remove();
+    if (!key) return undefined;
+    const day = Object.entries(paletteFrom(key)).map(([k, v]) => `${k}: ${v};`).join(' ');
+    const el = document.createElement('style');
+    el.id = STYLE_ID;
+    el.textContent = `:root { --brand-base: ${key}; } :root:not(.dark) { ${day} }`;
+    document.head.appendChild(el);
+    return () => el.remove();
   }, [key]);
 }

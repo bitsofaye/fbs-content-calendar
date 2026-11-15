@@ -91,6 +91,7 @@ model Client {
   logoUrl    String?
   industry   String?
   active     Boolean  @default(true)
+  deletedAt  DateTime? // in the Trash since then; removed for good after 30 days
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -122,6 +123,7 @@ model Pillar {
   client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
   name      String
   color     String  @default("#64748b")
+  icon      String? // optional emoji shown beside the pillar name
   weekday   Int? // 0=Sunday .. 6=Saturday — the weekday slot (e.g. Motivational Monday)
   sortOrder Int     @default(0)
   active    Boolean @default(true)
