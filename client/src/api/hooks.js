@@ -148,6 +148,11 @@ export const useGenerateMonth = () =>
 // AI drafts: generating can take a few minutes for a whole month, so allow up to 10
 export const useGenerateContent = () =>
   useApiMutation(async (body) => (await api.post('/posts/generate-content', body, { timeout: 10 * 60 * 1000 })).data, { invalidate: false });
+// is one-click (API) generation set up on the server? If not, the copy-paste way through claude.ai is used
+export const useGenerateStatus = (enabled = true) =>
+  useQuery({ queryKey: ['generateStatus'], enabled, staleTime: 5 * 60 * 1000, queryFn: async () => (await api.get('/posts/generate-content/status')).data });
+export const useContentRequest = () => useApiMutation(async (body) => (await api.post('/posts/generate-content/request', body)).data, { invalidate: false });
+export const useReadClaudeReply = () => useApiMutation(async (body) => (await api.post('/posts/generate-content/read', body)).data, { invalidate: false });
 export const useSaveGeneratedContent = () =>
   useApiMutation(async (body) => (await api.post('/posts/generate-content/save', body)).data, {
     success: (d) => `Added ${d.created} post${d.created === 1 ? '' : 's'} to the calendar`,

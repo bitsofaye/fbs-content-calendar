@@ -97,8 +97,8 @@ function buildPrompt({ client, pillars, themes, dates, existing, recent, opts })
   return lines.join('\n\n');
 }
 
-export async function generateDrafts(opts) {
-  const ai = anthropic();
+// Everything Claude needs to know, read from the database: shared by the API and the copy-paste ways
+async function prepare(opts) {
   const { clientId, from, to } = opts;
   const [clientRow, pillars, existingRows, recentRows] = await Promise.all([
     prisma.client.findUnique({ where: { id: clientId }, select: { id: true, name: true, industry: true } }),
@@ -136,7 +136,15 @@ export async function generateDrafts(opts) {
     recent: recentRows.map((p) => ({ date: iso(p.date), title: p.title })),
     opts,
   });
+  return { pillars, dates, prompt };
+}
 
+export const aiAvailable = () => Boolean(process.env.ANTHROPIC_API_KEY);
+
+// One click: the server asks Claude through the API (needs ANTHROPIC_API_KEY)
+export async function generateDrafts(opts) {
+  const ai = anthropic();
+  const { pillars, dates, prompt } = await prepare(opts);
   const format = betaZodOutputFormat(DraftSchema);
   let message;
   try {
@@ -166,29 +174,106 @@ export async function generateDrafts(opts) {
   } catch {
     throw new HttpError(502, 'The AI reply could not be read. Try again.');
   }
+  return { drafts: toDrafts(parsed, { pillars, dates, opts }), dates };
+}
 
-  // keep only drafts for the dates asked for, and link pillars by name
+// Copy-paste (uses the person's own Claude subscription): the request to paste into claude.ai
+const REPLY_FORMAT = `# How to reply
+Reply with only one JSON code block and nothing else, in exactly this shape:
+
+\`\`\`json
+{
+  "posts": [
+    {
+      "date": "YYYY-MM-DD",
+      "pillar": "exact pillar name, or null",
+      "placements": ["FB_POST", "IG_POST"],
+      "format": "Graphic | Carousel | Infographic | Short Video | Reel | Story | Text post",
+      "title": "short internal title, under 70 characters",
+      "caption": "the full ready-to-post caption",
+      "hashtags": "space-separated hashtags, or an empty string",
+      "graphicsIdea": "what the designer should make",
+      "storyboard": "scene-by-scene outline for videos, or an empty string"
+    }
+  ]
+}
+\`\`\`
+
+Allowed placements: ${PLACEMENTS.join(', ')}.`;
+
+export async function buildPasteRequest(opts) {
+  const { dates, prompt } = await prepare(opts);
+  return { text: `${SYSTEM}\n\n${prompt}\n\n${REPLY_FORMAT}`, dates };
+}
+
+// Read the reply pasted back from claude.ai
+export function readPastedReply(text) {
+  const raw = String(text || '').trim();
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  let body = fenced ? fenced[1] : raw;
+  // the JSON starts at the first { or [ (whichever comes first) and ends at its matching kind of bracket
+  const obj = body.indexOf('{');
+  const arr = body.indexOf('[');
+  const isArray = arr !== -1 && (obj === -1 || arr < obj);
+  const start = isArray ? arr : obj;
+  const end = body.lastIndexOf(isArray ? ']' : '}');
+  if (start === -1 || end <= start) throw new HttpError(400, 'Could not find the posts in what you pasted. Copy Claude’s whole reply, including the code block.');
+  body = body.slice(start, end + 1);
+  let json;
+  try {
+    json = JSON.parse(body);
+  } catch {
+    throw new HttpError(400, 'The pasted reply is incomplete or changed. Copy Claude’s whole reply again (use the copy button under the code block).');
+  }
+  // be forgiving with what a chat reply may leave out
+  const Loose = z.object({
+    posts: z.array(
+      z.object({
+        date: z.string(),
+        pillar: z.string().nullable().optional(),
+        placements: z.array(z.string()).optional().default([]),
+        format: z.string().optional().default(''),
+        title: z.string().min(1),
+        caption: z.string().optional().default(''),
+        hashtags: z.string().optional().default(''),
+        graphicsIdea: z.string().optional().default(''),
+        storyboard: z.string().optional().default(''),
+      }),
+    ),
+  });
+  const parsed = Loose.safeParse(Array.isArray(json) ? { posts: json } : json);
+  if (!parsed.success) throw new HttpError(400, 'The pasted reply is missing parts of the posts (each needs at least a date and a title). Ask Claude to answer again in the JSON format.');
+  return parsed.data;
+}
+
+export async function draftsFromPaste(opts, text) {
+  const parsed = readPastedReply(text);
+  const pillars = await prisma.pillar.findMany({ where: { clientId: opts.clientId, active: true } });
+  const dates = targetDates({ from: opts.from, to: opts.to, days: opts.days, pillars });
+  return { drafts: toDrafts(parsed, { pillars, dates, opts }), dates };
+}
+
+// Keep only drafts for the dates asked for, link pillars by name, and tidy the fields
+export function toDrafts(parsed, { pillars, dates, opts }) {
   const wanted = new Set(dates);
   const byName = new Map(pillars.map((p) => [p.name.trim().toLowerCase(), p]));
-  const drafts = parsed.posts
+  return parsed.posts
     .filter((p) => wanted.has(p.date))
     .map((p) => {
       const pillar = p.pillar ? byName.get(p.pillar.trim().toLowerCase()) : null;
+      const placements = [...new Set(p.placements || [])].filter((x) => opts.placements.includes(x));
       return {
         date: p.date,
         pillarId: pillar?.id ?? null,
         pillarName: pillar?.name ?? null,
-        placements: [...new Set(p.placements)].filter((x) => opts.placements.includes(x)).length
-          ? [...new Set(p.placements)].filter((x) => opts.placements.includes(x))
-          : opts.placements,
-        format: p.format.slice(0, 100),
+        placements: placements.length ? placements : opts.placements,
+        format: (p.format || '').slice(0, 100) || null,
         title: p.title.slice(0, 200),
-        caption: p.caption,
+        caption: p.caption || null,
         hashtags: p.hashtags || null,
         graphicsIdea: p.graphicsIdea || null,
         storyboard: p.storyboard || null,
       };
     })
     .sort((a, b) => a.date.localeCompare(b.date));
-  return { drafts, dates };
 }

@@ -8,7 +8,7 @@ import { dateStr, id, PLACEMENTS, postCreate, postListQuery, postUpdate, STATUSE
 import { assertClientAccess, requireAdmin, resolveClientId } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { assignmentLogs, NEEDS_COMMENT, statusBlock } from '../lib/workflow.js';
-import { generateDrafts } from '../lib/contentGenerator.js';
+import { aiAvailable, buildPasteRequest, draftsFromPaste, generateDrafts } from '../lib/contentGenerator.js';
 
 const router = Router();
 
@@ -314,7 +314,7 @@ router.post('/generate-month', requireAdmin, validate(generateSchema), async (re
 
 // ---------- AI content drafts: generate for review, then save the ones kept ----------
 
-const generateContentSchema = z
+const briefFields = z
   .object({
     clientId: id,
     from: dateStr,
@@ -330,13 +330,34 @@ const generateContentSchema = z
     notes: z.string().trim().max(3000).optional().default(''),
     avoid: z.string().trim().max(500).optional().default(''),
     hashtags: z.boolean().default(true),
-  })
-  .refine((b) => b.from <= b.to, { message: 'The start date must be before the end date', path: ['to'] })
-  .refine((b) => (dateFromISO(b.to) - dateFromISO(b.from)) / 86400000 <= 31, { message: 'Generate at most one month at a time', path: ['to'] });
+  });
+const checkRange = (schema) =>
+  schema
+    .refine((b) => b.from <= b.to, { message: 'The start date must be before the end date', path: ['to'] })
+    .refine((b) => (dateFromISO(b.to) - dateFromISO(b.from)) / 86400000 <= 31, { message: 'Generate at most one month at a time', path: ['to'] });
+const generateContentSchema = checkRange(briefFields);
+const readReplySchema = checkRange(briefFields.extend({ reply: z.string().min(1, 'Paste Claude’s reply first').max(500000) }));
 
+// is the one-click (API) way set up on this server?
+router.get('/generate-content/status', requireAdmin, (_req, res) => {
+  res.json({ api: aiAvailable() });
+});
+
+// one click, through the API
 router.post('/generate-content', requireAdmin, validate(generateContentSchema), async (req, res) => {
   const result = await generateDrafts(req.valid.body);
   res.json(result);
+});
+
+// copy-paste through the person's own Claude subscription: 1) the request to paste into claude.ai
+router.post('/generate-content/request', requireAdmin, validate(generateContentSchema), async (req, res) => {
+  res.json(await buildPasteRequest(req.valid.body));
+});
+
+// 2) read Claude's reply pasted back into drafts for review
+router.post('/generate-content/read', requireAdmin, validate(readReplySchema), async (req, res) => {
+  const { reply, ...opts } = req.valid.body;
+  res.json(await draftsFromPaste(opts, reply));
 });
 
 const draftSchema = z.object({

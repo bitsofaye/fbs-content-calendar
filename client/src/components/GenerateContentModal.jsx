@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarDays, CalendarRange, Check, ChevronDown, ChevronRight, RefreshCw, Sparkles } from 'lucide-react';
-import { useGenerateContent, usePillars, useSaveGeneratedContent } from '../api/hooks';
+import { ArrowLeft, CalendarDays, CalendarRange, Check, ChevronDown, ChevronRight, ClipboardCopy, ExternalLink, RefreshCw, Sparkles } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { useContentRequest, useGenerateContent, useGenerateStatus, usePillars, useReadClaudeReply, useSaveGeneratedContent } from '../api/hooks';
 import { PLACEMENTS } from '../lib/constants';
 import { formatDate, monthBounds, monthLabel, weekOf } from '../lib/dates';
 import { Modal, PillarDot, PlacementChips, Spinner } from './ui';
@@ -47,7 +48,10 @@ function saveBrief(clientId, brief) {
 }
 
 export default function GenerateContentModal({ open, onClose, client, day, month }) {
-  const [step, setStep] = useState('setup'); // setup → review
+  const [step, setStep] = useState('setup'); // setup → (paste →) review
+  const [mode, setMode] = useState('api'); // 'api' = one click; 'paste' = through the person's own claude.ai plan
+  const [requestText, setRequestText] = useState('');
+  const [reply, setReply] = useState('');
   const [scope, setScope] = useState('week');
   const [pickDay, setPickDay] = useState(day);
   const [postsPerDay, setPostsPerDay] = useState(1);
@@ -58,6 +62,10 @@ export default function GenerateContentModal({ open, onClose, client, day, month
   const [expanded, setExpanded] = useState(null);
   const generate = useGenerateContent();
   const save = useSaveGeneratedContent();
+  const request = useContentRequest();
+  const readReply = useReadClaudeReply();
+  const { data: status } = useGenerateStatus(open);
+  const apiReady = Boolean(status?.api);
   const { data: pillars = [] } = usePillars(client.id);
   const hasPillarDays = pillars.some((p) => p.active && p.weekday !== null && p.weekday !== undefined);
 
@@ -66,6 +74,7 @@ export default function GenerateContentModal({ open, onClose, client, day, month
     setStep('setup');
     setPickDay(day);
     setResult(null);
+    setReply('');
     setBrief(loadBrief(client.id));
   }, [open, day, client.id]);
 
@@ -84,28 +93,54 @@ export default function GenerateContentModal({ open, onClose, client, day, month
   const goal = brief.goal === 'Other' ? brief.customGoal.trim() : brief.goal;
   const canGenerate = goal && brief.placements.length && !generate.isPending;
 
-  const run = async () => {
-    saveBrief(client.id, brief);
-    const r = await generate.mutateAsync({
-      clientId: client.id,
-      from: range.from,
-      to: range.to,
-      postsPerDay,
-      days: scope === 'day' ? 'every' : days,
-      placements: brief.placements,
-      goal,
-      audience: brief.audience,
-      tone: brief.tone,
-      language: brief.language,
-      cta: brief.cta,
-      notes: brief.notes,
-      avoid: brief.avoid,
-      hashtags: brief.hashtags,
-    });
+  const body = () => ({
+    clientId: client.id,
+    from: range.from,
+    to: range.to,
+    postsPerDay,
+    days: scope === 'day' ? 'every' : days,
+    placements: brief.placements,
+    goal,
+    audience: brief.audience,
+    tone: brief.tone,
+    language: brief.language,
+    cta: brief.cta,
+    notes: brief.notes,
+    avoid: brief.avoid,
+    hashtags: brief.hashtags,
+  });
+  const showDrafts = (r) => {
     setResult(r);
     setKeep(new Set(r.drafts.map((_, i) => i)));
     setExpanded(null);
     setStep('review');
+  };
+
+  // copy-paste way: 1) build the request for claude.ai
+  const getRequest = async () => {
+    saveBrief(client.id, brief);
+    setMode('paste');
+    const r = await request.mutateAsync(body());
+    setRequestText(r.text);
+    setReply('');
+    setStep('paste');
+  };
+  const copyRequest = async () => {
+    try {
+      await navigator.clipboard.writeText(requestText);
+      toast.success('Copied. Now paste it into Claude');
+    } catch {
+      document.getElementById('cc-gen-request')?.select();
+      toast('Press Ctrl+C to copy the selected text');
+    }
+  };
+  // 2) read the reply pasted back
+  const readPasted = async () => showDrafts(await readReply.mutateAsync({ ...body(), reply }));
+
+  const run = async () => {
+    saveBrief(client.id, brief);
+    setMode('api');
+    showDrafts(await generate.mutateAsync(body()));
   };
 
   const addToCalendar = async () => {
@@ -118,9 +153,29 @@ export default function GenerateContentModal({ open, onClose, client, day, month
   const footer =
     step === 'setup' ? (
       <>
-        <button className="btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
-        <button className="btn-primary" disabled={!canGenerate} onClick={run}>
-          {busy ? <Spinner className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />} {busy ? 'Writing posts…' : 'Generate'}
+        <button className="btn-secondary mr-auto" onClick={onClose} disabled={busy}>Cancel</button>
+        {apiReady && (
+          <button className="btn-secondary" disabled={!canGenerate || request.isPending} onClick={getRequest} title="Write the posts in claude.ai with your own Claude plan">
+            Use my Claude plan
+          </button>
+        )}
+        {apiReady ? (
+          <button className="btn-primary" disabled={!canGenerate} onClick={run}>
+            {busy ? <Spinner className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />} {busy ? 'Writing posts…' : 'Generate'}
+          </button>
+        ) : (
+          <button className="btn-primary" disabled={!canGenerate || request.isPending} onClick={getRequest}>
+            {request.isPending ? <Spinner className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />} Next: write it in Claude
+          </button>
+        )}
+      </>
+    ) : step === 'paste' ? (
+      <>
+        <button className="btn-secondary mr-auto" onClick={() => setStep('setup')} disabled={readReply.isPending}>
+          <ArrowLeft className="h-4 w-4" /> Change brief
+        </button>
+        <button className="btn-primary" disabled={!reply.trim() || readReply.isPending} onClick={readPasted}>
+          {readReply.isPending ? <Spinner className="h-4 w-4" /> : <Check className="h-4 w-4" />} Show the drafts
         </button>
       </>
     ) : (
@@ -128,8 +183,13 @@ export default function GenerateContentModal({ open, onClose, client, day, month
         <button className="btn-secondary mr-auto" onClick={() => setStep('setup')} disabled={busy || save.isPending}>
           <ArrowLeft className="h-4 w-4" /> Change brief
         </button>
-        <button className="btn-secondary" onClick={run} disabled={busy || save.isPending}>
-          {busy ? <Spinner className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />} {busy ? 'Writing…' : 'Try again'}
+        <button
+          className="btn-secondary"
+          onClick={mode === 'paste' ? () => { setReply(''); setStep('paste'); } : run}
+          disabled={busy || save.isPending}
+          title={mode === 'paste' ? 'Paste a different reply from Claude' : 'Write a new set of drafts'}
+        >
+          {busy ? <Spinner className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />} {busy ? 'Writing…' : mode === 'paste' ? 'Paste another reply' : 'Try again'}
         </button>
         <button className="btn-primary" disabled={!keep.size || save.isPending || busy} onClick={addToCalendar}>
           <Check className="h-4 w-4" /> {save.isPending ? 'Adding…' : `Add ${keep.size} to calendar`}
@@ -256,6 +316,33 @@ export default function GenerateContentModal({ open, onClose, client, day, month
               <Spinner className="h-4 w-4" /> Writing your posts. A week takes about a minute; a whole month can take a few minutes.
             </div>
           )}
+        </div>
+      ) : step === 'paste' ? (
+        <div className="space-y-4 text-sm">
+          <section>
+            <h3 className="mb-1 font-semibold text-slate-800">1. Copy this request</h3>
+            <p className="mb-2 text-xs text-slate-500">It already has the client’s details, pillars, theme, existing posts and your answers.</p>
+            <textarea id="cc-gen-request" readOnly className="input h-32 font-mono text-xs" value={requestText} onFocus={(e) => e.target.select()} />
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button className="btn-primary" onClick={copyRequest}><ClipboardCopy className="h-4 w-4" /> Copy request</button>
+              <a className="btn-secondary" href="https://claude.ai/new" target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /> Open Claude</a>
+            </div>
+          </section>
+          <section>
+            <h3 className="mb-1 font-semibold text-slate-800">2. Paste it into a new Claude chat and send it</h3>
+            <p className="text-xs text-slate-500">
+              Claude answers with a code block. A whole month can take a minute or two. If the reply stops early, type “continue” in Claude, then copy everything.
+            </p>
+          </section>
+          <section>
+            <h3 className="mb-1 font-semibold text-slate-800">3. Copy Claude’s whole reply and paste it here</h3>
+            <textarea
+              className="input h-40 font-mono text-xs"
+              placeholder="Paste Claude’s reply here (the copy button under the code block copies just the posts)"
+              value={reply}
+              onChange={(e) => setReply(e.target.value)}
+            />
+          </section>
         </div>
       ) : (
         <div className="space-y-3 text-sm">
