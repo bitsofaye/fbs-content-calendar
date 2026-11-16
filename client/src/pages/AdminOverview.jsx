@@ -8,7 +8,6 @@ import { clientHealth, HEALTH } from '../lib/health';
 import { CALENDAR_PAGES, usePins } from '../lib/pins';
 import { ClientMark, EmptyState, FullPageSpinner, KpiTile, PageHeader } from '../components/ui';
 import PinPagePicker from '../components/PinPagePicker';
-import TodayHeadline from '../components/TodayHeadline';
 
 function HealthPill({ health }) {
   const h = HEALTH[health];
@@ -51,16 +50,6 @@ export default function AdminOverview() {
     edits: data.needsEdits.length,
     next7: data.upcoming.length,
   };
-  // today's posts across every client, and which clients they belong to
-  const todayPosts = data.upcoming.filter((p) => p.date === data.today);
-  const todayClients = Object.values(
-    todayPosts.reduce((acc, p) => {
-      const k = p.client.slug;
-      acc[k] = acc[k] || { slug: k, name: p.client.name, count: 0 };
-      acc[k].count += 1;
-      return acc;
-    }, {}),
-  ).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   const attention = rows.filter((r) => r.health !== 'OK').sort(SORTS.attention.fn);
   const attentionShown = showAllAttention ? attention : attention.slice(0, 5);
 
@@ -82,9 +71,6 @@ export default function AdminOverview() {
           </Link>
         }
       />
-
-      {/* the headline: what goes out today on every calendar (FBS included), first thing after signing in */}
-      <TodayHeadline to="/admin/today" count={todayPosts.length} clients={todayClients} scope="across all calendars" />
 
       {/* 1. four numbers for all clients together */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
