@@ -9,7 +9,7 @@ const longDate = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefin
  * A big headline button into the day-by-day view; `clients` (FBS dashboard) adds one chip per
  * client posting today.
  */
-export default function TodayHeadline({ to, count = 0, clients = [] }) {
+export default function TodayHeadline({ to, count = 0, clients = [], scope = '' }) {
   const today = todayISO();
   return (
     <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-brand-800 to-brand-700 text-white shadow-lift">
@@ -21,7 +21,8 @@ export default function TodayHeadline({ to, count = 0, clients = [] }) {
           <span className="block text-[11px] font-semibold tracking-[0.14em] text-white/80 uppercase">{longDate(today)}</span>
           <span className="block text-2xl leading-tight font-semibold tracking-tight text-white sm:text-3xl">What's today</span>
           <span className="mt-0.5 block text-sm text-white/80">
-            {count ? `${count} post${count === 1 ? '' : 's'} going out today` : 'Nothing is scheduled to go out today'} · see the day post by post
+            {count ? `${count} post${count === 1 ? '' : 's'} going out today` : 'Nothing is scheduled to go out today'}
+            {scope ? ` ${scope}` : ''} · see the day post by post
           </span>
         </span>
         <span className="hidden shrink-0 items-center gap-1.5 rounded-xl bg-white/15 px-3.5 py-2 text-sm font-medium text-white ring-1 ring-white/25 transition-colors group-hover:bg-white/25 sm:flex">

@@ -130,7 +130,7 @@ router.get('/', validate(postListQuery, 'query'), async (req, res) => {
 
   const posts = await prisma.post.findMany({
     where,
-    include: { ...postListInclude, ...(clientId ? {} : { client: { select: { id: true, name: true, slug: true, brandColor: true } } }) },
+    include: { ...postListInclude, ...(clientId ? {} : { client: { select: { id: true, name: true, slug: true, brandColor: true, secondaryColor: true, logoUrl: true } } }) },
     orderBy: [{ date: 'asc' }, { time: 'asc' }, { createdAt: 'asc' }],
     take: q.limit ?? 2000,
   });

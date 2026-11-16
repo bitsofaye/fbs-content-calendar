@@ -9,7 +9,6 @@ import { CALENDAR_PAGES, usePins } from '../lib/pins';
 import { ClientMark, EmptyState, FullPageSpinner, KpiTile, PageHeader } from '../components/ui';
 import PinPagePicker from '../components/PinPagePicker';
 import TodayHeadline from '../components/TodayHeadline';
-import { useWorkspace } from '../lib/workspace';
 
 function HealthPill({ health }) {
   const h = HEALTH[health];
@@ -43,8 +42,6 @@ export default function AdminOverview() {
   const [showAllAttention, setShowAllAttention] = useState(false);
 
   const rows = useMemo(() => (data ? clientHealth(data) : []), [data]);
-  // the headline opens the calendar last worked in (FBS's own the first time)
-  const workspace = useWorkspace(rows, user?.id);
   if (isLoading || !data) return <FullPageSpinner />;
 
   const totals = {
@@ -86,8 +83,8 @@ export default function AdminOverview() {
         }
       />
 
-      {/* the headline: what goes out today, first thing after signing in */}
-      <TodayHeadline to={`/c/${workspace?.slug || 'fbs'}?view=daily&day=${data.today}`} count={todayPosts.length} clients={todayClients} />
+      {/* the headline: what goes out today on every calendar (FBS included), first thing after signing in */}
+      <TodayHeadline to="/admin/today" count={todayPosts.length} clients={todayClients} scope="across all calendars" />
 
       {/* 1. four numbers for all clients together */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

@@ -27,6 +27,15 @@ export const usePosts = (params, options = {}) =>
     queryFn: async () => (await api.get('/posts', { params: clean(params) })).data.posts,
   });
 
+// Posts across every client (FBS team only), e.g. everything going out on one day
+export const useAllPosts = (params, options = {}) =>
+  useQuery({
+    queryKey: ['posts', 'all', clean(params)],
+    enabled: options.enabled !== false,
+    placeholderData: keepPreviousData,
+    queryFn: async () => (await api.get('/posts', { params: clean(params) })).data.posts,
+  });
+
 export const usePost = (id) =>
   useQuery({
     queryKey: ['post', id],

@@ -146,12 +146,14 @@ function ViewLink({ slug, view, icon: Icon, children }) {
 }
 
 // "What's today": the headline button on top of a calendar's buttons
-function TodayLink({ slug }) {
+// With `all` (FBS team on the dashboards) it opens today across every calendar instead of one client's.
+function TodayLink({ slug, all = false }) {
   const { pathname, search } = useLocation();
-  const active = pathname === `/c/${slug}` && new URLSearchParams(search).get('view') === 'daily';
+  const active = all ? pathname === '/admin/today' : pathname === `/c/${slug}` && new URLSearchParams(search).get('view') === 'daily';
   return (
     <Link
-      to={`/c/${slug}?view=daily`}
+      to={all ? '/admin/today' : `/c/${slug}?view=daily`}
+      title={all ? 'Today on every calendar, FBS included' : undefined}
       className={`mb-1.5 flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[15px] font-semibold tracking-tight transition-colors ${
         active
           ? 'bg-gradient-to-br from-brand-800 to-brand-700 text-white shadow-sm'
@@ -235,7 +237,7 @@ function AdminNav({ user, clients, onNavigate }) {
   return (
     <>
       <div className="space-y-0.5">
-        {workspace && <TodayLink slug={workspace.slug} />}
+        <TodayLink all />
         <NavLink to="/admin" end className={navCls}>
           <LayoutDashboard className="h-4 w-4" /> Dashboard
         </NavLink>
@@ -363,6 +365,7 @@ function Sidebar({ onNavigate }) {
 
 const VIEW_LABEL = { calendar: 'Calendar', sheet: 'Content plan', daily: "What's today", board: 'Board', ideas: 'Idea bank' };
 const ADMIN_PAGES = {
+  '/admin/today': ["What's today"],
   '/admin/approvals': ['Approvals'],
   '/admin/clients': ['Manage', 'Clients'],
   '/admin/pillars': ['Manage', 'Pillars & themes'],
