@@ -237,7 +237,6 @@ function AdminNav({ user, clients, onNavigate }) {
   return (
     <>
       <div className="space-y-0.5">
-        <TodayLink all />
         <NavLink to="/admin" end className={navCls}>
           <LayoutDashboard className="h-4 w-4" /> Dashboard
         </NavLink>
