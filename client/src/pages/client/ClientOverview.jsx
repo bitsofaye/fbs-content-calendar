@@ -7,6 +7,7 @@ import { EmptyState, fmtNumber, FullPageSpinner, KpiTile, PageHeader } from '../
 import PillarMix from '../../components/PillarMix';
 import ClientPostRow from '../../components/ClientPostRow';
 import PostDrawer from '../../components/PostDrawer';
+import TodayHeadline from '../../components/TodayHeadline';
 import { useMyClient } from './useMyClient';
 
 const NONE = [];
@@ -62,6 +63,9 @@ export default function ClientOverview() {
           </button>
         }
       />
+
+      {/* the headline: today's posts, first thing after signing in */}
+      <TodayHeadline to={`/c/${client.slug}?view=daily&day=${today}`} count={next7.filter((p) => p.date === today).length} />
 
       {/* the numbers */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

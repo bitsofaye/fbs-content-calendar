@@ -145,11 +145,29 @@ function ViewLink({ slug, view, icon: Icon, children }) {
   );
 }
 
+// "What's today": the headline button on top of a calendar's buttons
+function TodayLink({ slug }) {
+  const { pathname, search } = useLocation();
+  const active = pathname === `/c/${slug}` && new URLSearchParams(search).get('view') === 'daily';
+  return (
+    <Link
+      to={`/c/${slug}?view=daily`}
+      className={`mb-1.5 flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[15px] font-semibold tracking-tight transition-colors ${
+        active
+          ? 'bg-gradient-to-br from-brand-800 to-brand-700 text-white shadow-sm'
+          : 'border border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100'
+      }`}
+    >
+      <Sun className="h-[18px] w-[18px]" /> What's today
+    </Link>
+  );
+}
+
 // The buttons of one calendar — shared by the FBS team (any client) and client logins (their own)
 function CalendarLinks({ slug, showBoard, ideaAlerts = 0 }) {
   return (
     <div className="space-y-0.5">
-      <ViewLink slug={slug} view="daily" icon={Rows3}>Daily View</ViewLink>
+      <TodayLink slug={slug} />
       <ViewLink slug={slug} view="calendar" icon={CalendarDays}>Calendar</ViewLink>
       <ViewLink slug={slug} view="sheet" icon={Table2}>Content plan</ViewLink>
       {showBoard && <ViewLink slug={slug} view="board" icon={Columns3}>Board</ViewLink>}
@@ -217,6 +235,7 @@ function AdminNav({ user, clients, onNavigate }) {
   return (
     <>
       <div className="space-y-0.5">
+        {workspace && <TodayLink slug={workspace.slug} />}
         <NavLink to="/admin" end className={navCls}>
           <LayoutDashboard className="h-4 w-4" /> Dashboard
         </NavLink>
@@ -266,6 +285,7 @@ function ClientNav({ client, clientId }) {
   return (
     <>
       <div className="space-y-0.5">
+        <TodayLink slug={client.slug} />
         <NavLink to="/overview" className={navCls}>
           <LayoutDashboard className="h-4 w-4" /> Dashboard
         </NavLink>
@@ -341,7 +361,7 @@ function Sidebar({ onNavigate }) {
   );
 }
 
-const VIEW_LABEL = { calendar: 'Calendar', sheet: 'Content plan', daily: 'Daily View', board: 'Board', ideas: 'Idea bank' };
+const VIEW_LABEL = { calendar: 'Calendar', sheet: 'Content plan', daily: "What's today", board: 'Board', ideas: 'Idea bank' };
 const ADMIN_PAGES = {
   '/admin/approvals': ['Approvals'],
   '/admin/clients': ['Manage', 'Clients'],

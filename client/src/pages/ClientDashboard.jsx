@@ -19,7 +19,7 @@ import BoardView from './views/BoardView';
 import IdeasView from './views/IdeasView';
 
 const VIEWS = [
-  { id: 'daily', label: 'Daily View', icon: Rows3 },
+  { id: 'daily', label: "What's today", icon: Rows3 },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'sheet', label: 'Content plan', icon: Table2 },
   { id: 'board', label: 'Board', icon: Columns3 },

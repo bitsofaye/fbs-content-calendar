@@ -8,7 +8,7 @@ const viewsKeyFor = (userId) => `cc.pinViews.${userId || 'anon'}`;
 
 // The pages of a calendar a pinned client can open on
 export const CALENDAR_PAGES = [
-  { id: 'daily', label: 'Daily View' },
+  { id: 'daily', label: "What's today" },
   { id: 'calendar', label: 'Calendar' },
   { id: 'sheet', label: 'Content plan' },
   { id: 'board', label: 'Board' },

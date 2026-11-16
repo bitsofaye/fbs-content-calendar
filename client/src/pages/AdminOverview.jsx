@@ -8,6 +8,8 @@ import { clientHealth, HEALTH } from '../lib/health';
 import { CALENDAR_PAGES, usePins } from '../lib/pins';
 import { ClientMark, EmptyState, FullPageSpinner, KpiTile, PageHeader } from '../components/ui';
 import PinPagePicker from '../components/PinPagePicker';
+import TodayHeadline from '../components/TodayHeadline';
+import { useWorkspace } from '../lib/workspace';
 
 function HealthPill({ health }) {
   const h = HEALTH[health];
@@ -41,6 +43,8 @@ export default function AdminOverview() {
   const [showAllAttention, setShowAllAttention] = useState(false);
 
   const rows = useMemo(() => (data ? clientHealth(data) : []), [data]);
+  // the headline opens the calendar last worked in (FBS's own the first time)
+  const workspace = useWorkspace(rows, user?.id);
   if (isLoading || !data) return <FullPageSpinner />;
 
   const totals = {
@@ -50,6 +54,16 @@ export default function AdminOverview() {
     edits: data.needsEdits.length,
     next7: data.upcoming.length,
   };
+  // today's posts across every client, and which clients they belong to
+  const todayPosts = data.upcoming.filter((p) => p.date === data.today);
+  const todayClients = Object.values(
+    todayPosts.reduce((acc, p) => {
+      const k = p.client.slug;
+      acc[k] = acc[k] || { slug: k, name: p.client.name, count: 0 };
+      acc[k].count += 1;
+      return acc;
+    }, {}),
+  ).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   const attention = rows.filter((r) => r.health !== 'OK').sort(SORTS.attention.fn);
   const attentionShown = showAllAttention ? attention : attention.slice(0, 5);
 
@@ -71,6 +85,9 @@ export default function AdminOverview() {
           </Link>
         }
       />
+
+      {/* the headline: what goes out today, first thing after signing in */}
+      <TodayHeadline to={`/c/${workspace?.slug || 'fbs'}?view=daily&day=${data.today}`} count={todayPosts.length} clients={todayClients} />
 
       {/* 1. four numbers for all clients together */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
