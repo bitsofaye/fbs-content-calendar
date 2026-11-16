@@ -1,13 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import {
-  ArrowLeft, BarChart3, Bell, CalendarDays, Inbox, CheckSquare, ChevronDown, ChevronRight, ChevronsUpDown, Columns3, FileSpreadsheet, FolderOpen, LayoutDashboard, Lightbulb, LogOut, Menu, Moon, Pin, Rows3, Search, Settings2, Star, Sun, Table2, Tags,
+  ArrowLeft, BarChart3, Bell, CalendarDays, Inbox, CheckSquare, ChevronDown, ChevronRight, ChevronsUpDown, Columns3, FileSpreadsheet, FolderOpen, LayoutDashboard, Lightbulb, LogOut, Menu, Moon, Rows3, Search, Settings2, Star, Sun, Table2, Tags,
   UserCircle, Users, X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useClients, useNotifications, useOverview, usePosts } from '../api/hooks';
 import { CALENDAR_PAGES, calendarPagePath, openClientSwitcher, usePins } from '../lib/pins';
-import { useWorkspacePicker } from '../lib/workspace';
+import { useWorkspace } from '../lib/workspace';
 import ClientSwitcher from './ClientSwitcher';
 import { ClientMark } from './ui';
 import { useBrandTheme } from '../lib/theme';
@@ -21,7 +21,6 @@ const navCls = ({ isActive }) =>
 const sectionCls = 'mb-1.5 px-2.5 text-[11px] font-medium tracking-[0.08em] text-slate-500 uppercase';
 const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform);
 
-const PAGE_ICON = { daily: Rows3, calendar: CalendarDays, sheet: Table2, board: Columns3, ideas: Lightbulb, results: BarChart3, drive: FolderOpen };
 
 const stop = (e) => e.stopPropagation(); // clicks that should keep the phone menu open
 
@@ -30,9 +29,10 @@ const brandBar = (c) => ({
   background: `linear-gradient(${c?.brandColor || '#cbd5e1'} 50%, ${c?.secondaryColor || c?.brandColor || '#cbd5e1'} 50%)`,
 });
 
-// Dashboard sidebar: one calendar shown as a card (like inside a calendar). Clicking the card opens it;
-// the arrow drops down that calendar's pages and every other client, so another one can be picked here.
-function CalendarCard({ client, clients, pins, onChoose }) {
+// Dashboard sidebar: the last calendar used, shown as a card (like inside a calendar). Clicking the card
+// opens it; the arrow drops down every other client, and clicking one opens that client's calendar.
+// Inside a calendar the sidebar keeps that client on top; switching again is done from the Dashboard.
+function CalendarCard({ client, clients, pins }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const page = pins.pageOf(client.id);
@@ -63,8 +63,8 @@ function CalendarCard({ client, clients, pins, onChoose }) {
           type="button"
           className={`flex w-8 shrink-0 cursor-pointer items-center justify-center ${open ? 'text-brand-700' : 'text-slate-500 hover:bg-brand-50 hover:text-brand-700'}`}
           aria-expanded={open}
-          aria-label={open ? 'Hide pages and clients' : 'Show pages and other clients'}
-          title="Pages and other clients"
+          aria-label={open ? 'Hide other clients' : 'Show other clients'}
+          title="Other clients"
           onClick={(e) => {
             stop(e);
             setOpen((v) => !v);
@@ -76,42 +76,8 @@ function CalendarCard({ client, clients, pins, onChoose }) {
 
       {open && (
         <div className="mt-1.5 rounded-xl border border-slate-200 bg-white p-1.5 shadow-card">
-          {/* the pages of the calendar on the card; the pin picks the page the card opens */}
-          <div className="px-1.5 pt-0.5 pb-1 text-[10px] font-medium tracking-[0.08em] text-slate-500 uppercase">Pages</div>
-          <ul className="space-y-0.5">
-            {CALENDAR_PAGES.map((p) => {
-              const Icon = PAGE_ICON[p.id];
-              const isDefault = p.id === page;
-              return (
-                <li key={p.id} className="group flex items-center gap-0.5">
-                  <Link
-                    to={calendarPagePath(client.slug, p.id)}
-                    className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-[13px] text-slate-600 hover:bg-brand-50 hover:text-brand-700"
-                  >
-                    <Icon className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{p.label}</span>
-                  </Link>
-                  <button
-                    type="button"
-                    className={`flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded ${
-                      isDefault ? 'text-brand-600' : 'text-slate-400 opacity-0 group-hover:opacity-100 hover:text-brand-700 focus-visible:opacity-100'
-                    }`}
-                    title={isDefault ? 'The card opens this page' : 'Open this page when I click the card'}
-                    aria-label={`Open ${client.name} on ${p.label}`}
-                    aria-pressed={isDefault}
-                    onClick={(e) => {
-                      stop(e);
-                      pins.setPage(client.id, p.id);
-                    }}
-                  >
-                    <Pin className="h-3.5 w-3.5" fill={isDefault ? 'currentColor' : 'none'} />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-
-          {/* every other client: pick one to show it on the card (stays on the dashboard) */}
-          <div className="mt-2 border-t border-slate-100 px-1.5 pt-2 pb-1 text-[10px] font-medium tracking-[0.08em] text-slate-500 uppercase">
+          {/* every other client: clicking one opens its calendar (come back to the Dashboard to switch again) */}
+          <div className="px-1.5 pt-0.5 pb-1 text-[10px] font-medium tracking-[0.08em] text-slate-500 uppercase">
             Switch calendar · {clients.length - 1}
           </div>
           {clients.length > 7 && (
@@ -134,19 +100,14 @@ function CalendarCard({ client, clients, pins, onChoose }) {
                 <li key={c.id}>
                   {i === firstUnpinned && firstUnpinned > 0 && <div className="mx-2 my-1 border-t border-dashed border-slate-200" />}
                   <div className="flex items-center gap-0.5">
-                    <button
-                      type="button"
-                      className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] text-slate-600 hover:bg-brand-50 hover:text-brand-700"
-                      title={`Show ${c.name} on the card`}
-                      onClick={(e) => {
-                        stop(e);
-                        onChoose(c.slug);
-                        setQ('');
-                      }}
+                    <Link
+                      to={calendarPagePath(c.slug, pins.pageOf(c.id))}
+                      className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-[13px] text-slate-600 hover:bg-brand-50 hover:text-brand-700"
+                      title={`Open ${c.name}`}
                     >
                       <ClientMark client={c} />
                       <span className="min-w-0 flex-1 leading-snug break-words">{c.name}</span>
-                    </button>
+                    </Link>
                     <button
                       type="button"
                       className={`flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded ${pinned ? 'text-brand-600' : 'text-slate-400 hover:text-brand-700'}`}
@@ -245,7 +206,7 @@ function CalendarNav({ slug, isAdmin, clients, user }) {
 function AdminNav({ user, clients, onNavigate }) {
   const { data: overview } = useOverview();
   const pinStore = usePins(user?.id);
-  const [workspace, chooseWorkspace] = useWorkspacePicker(clients, user?.id);
+  const workspace = useWorkspace(clients, user?.id);
   const approvals = overview ? overview.awaitingApproval.length + (overview.clientRequests?.length || 0) : 0;
   const switcher = (e) => {
     e.stopPropagation();
@@ -268,7 +229,7 @@ function AdminNav({ user, clients, onNavigate }) {
       <div>
         <div className={sectionCls}>Calendars</div>
         <div className="space-y-0.5">
-          {workspace && <CalendarCard client={workspace} clients={clients} pins={pinStore} onChoose={chooseWorkspace} />}
+          {workspace && <CalendarCard client={workspace} clients={clients} pins={pinStore} />}
           <button onClick={switcher} className="mt-1 flex w-full cursor-pointer items-center gap-2.5 rounded-md border border-slate-200 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-800">
             <Search className="h-4 w-4" /> <span className="flex-1 text-left">All clients</span>
             <span className="text-[10px] text-slate-400">{clients.length}</span>
