@@ -18,12 +18,15 @@ export default function DrivePicker({ open, onClose, client, isAdmin, onAdd }) {
   const [browsing, setBrowsing] = useState(null); // a Drive link whose folder is shown
   const [pasted, setPasted] = useState('');
   const [files, setFiles] = useState(() => new Map()); // files ticked while browsing: url → file
+  const [folderLink, setFolderLink] = useState(''); // any Drive folder link to browse
+  const folderLinkOk = driveInfo(folderLink).kind === 'folder';
 
   const close = () => {
     setPicked(new Set());
     setBrowsing(null);
     setPasted('');
     setFiles(new Map());
+    setFolderLink('');
     onClose();
   };
   const toggleFile = (f) => setFiles((m) => {
@@ -91,11 +94,46 @@ export default function DrivePicker({ open, onClose, client, isAdmin, onAdd }) {
     >
       {browsing ? (
         <DriveBrowser client={client} root={{ id: folderId, title: browsing.title, url: browsing.url }} picked={files} onToggle={toggleFile} />
-      ) : isLoading ? (
+      ) : (
+        <div className="space-y-4">
+          {/* any folder, not only the saved ones */}
+          <form
+            className="rounded-lg border border-brand-200 bg-brand-50/50 p-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (folderLinkOk) setBrowsing({ title: 'Drive folder', url: folderLink.trim() });
+            }}
+          >
+            <label className="label" htmlFor="cc-browse-folder">Browse a folder</label>
+            <div className="flex flex-wrap gap-2">
+              <input
+                id="cc-browse-folder"
+                className={`input min-w-[220px] flex-1 ${folderLink.trim() && !folderLinkOk ? 'border-red-400' : ''}`}
+                placeholder="Paste a Google Drive folder link"
+                value={folderLink}
+                onChange={(e) => setFolderLink(e.target.value)}
+              />
+              <button className="btn-primary" disabled={!folderLinkOk}>
+                <FolderOpen className="h-4 w-4" /> Browse
+              </button>
+            </div>
+            <p className="mt-1.5 text-xs text-slate-500">
+              {folderLink.trim() && !folderLinkOk ? 'That is not a Drive folder link. It should contain “/folders/”.' : 'Open the folder, go into its subfolders and tick the exact files to add.'}
+            </p>
+          </form>
+          {SavedLinks()}
+        </div>
+      )}
+    </Modal>
+  );
+
+  function SavedLinks() {
+    return isLoading ? (
         <div className="flex justify-center py-8"><Spinner /></div>
       ) : links.length ? (
         <div className="space-y-2">
-          <p className="text-xs text-slate-500">Tick the links to add to this post, or <b>Browse</b> a folder to pick one file from it.</p>
+          <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Saved Drive links of {client.name}</div>
+          <p className="text-xs text-slate-500">Tick links to add them as they are, or <b>Browse</b> a folder to pick exact files from it.</p>
           <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
             {links.map((l) => {
               const info = driveInfo(l.url);
@@ -123,7 +161,6 @@ export default function DrivePicker({ open, onClose, client, isAdmin, onAdd }) {
           No Drive links saved for {client.name} yet.{' '}
           {isAdmin && <Link to={`/c/${client.slug}/drive`} className="font-medium text-brand-600 hover:underline" onClick={close}>Add one on the Drive links page</Link>}
         </p>
-      )}
-    </Modal>
-  );
+      );
+  }
 }
