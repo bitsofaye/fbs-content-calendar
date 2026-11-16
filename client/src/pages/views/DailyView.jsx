@@ -7,7 +7,8 @@ import { canReviewPost, statusBlock } from '../../lib/workflow';
 import { PLACEMENT, STATUS } from '../../lib/constants';
 import { addDays, formatDate, todayISO, weekday, weekOf } from '../../lib/dates';
 import { PH_HOLIDAYS } from '../../lib/holidays';
-import { EmptyState, PillarDot, PlatformList, StatusBadge } from '../../components/ui';
+import { ClientMark, EmptyState, PillarDot, PlatformList, StatusBadge } from '../../components/ui';
+import { textOn } from '../../lib/theme';
 
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -90,9 +91,13 @@ function PostPreview({ post, client, isAdmin, onOpen }) {
         {/* how it will read */}
         <div className="min-w-0 rounded-xl border border-slate-200 bg-white">
           <div className="flex items-center gap-2.5 border-b border-slate-100 px-3.5 py-2.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white" style={{ background: client.brandColor }}>
-              {initials(client.name)}
-            </span>
+            {client.logoUrl ? (
+              <ClientMark client={client} size="h-8 w-8" />
+            ) : (
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold" style={{ background: client.brandColor, color: textOn(client.brandColor) }}>
+                {initials(client.name)}
+              </span>
+            )}
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold text-slate-800">{client.name}</span>
               <span className="block truncate text-[11px] text-slate-500">{platformNames || 'No platform yet'}</span>

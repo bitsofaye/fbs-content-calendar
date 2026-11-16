@@ -126,7 +126,7 @@ export default function ClientDashboard() {
     <div className="flex min-h-full flex-col">
       {/* header */}
       <div className="border-b border-slate-200 bg-white">
-        <div className="h-1.5" style={{ background: client.brandColor }} />
+        <div className="h-1.5" style={{ background: client.secondaryColor ? `linear-gradient(90deg, ${client.brandColor} 50%, ${client.secondaryColor} 50%)` : client.brandColor }} />
         {/* three parts: client on the left, the month truly centred, actions on the right */}
         <div className="grid grid-cols-1 items-center gap-3 px-4 py-3 sm:grid-cols-[1fr_auto_1fr] sm:px-6">
           <div className="flex min-w-0 items-center gap-1">
@@ -137,9 +137,9 @@ export default function ClientDashboard() {
             </div>
             {isAdmin && (
               <button
-                className={`cursor-pointer rounded p-1.5 ${isPinned(client.id) ? 'text-brand-600' : 'text-slate-300 hover:text-slate-700'}`}
-                title={isPinned(client.id) ? 'Unpin from sidebar' : 'Pin to sidebar'}
-                onClick={() => togglePin(client.id)}
+                className={`cursor-pointer rounded p-1.5 ${isPinned(client.id) ? 'text-brand-600' : 'text-slate-400 hover:text-slate-700'}`}
+                title={isPinned(client.id) ? 'Unpin from sidebar' : 'Pin to sidebar (opens on this page)'}
+                onClick={() => togglePin(client.id, view)}
               >
                 <Star className="h-4 w-4" fill={isPinned(client.id) ? 'currentColor' : 'none'} />
               </button>

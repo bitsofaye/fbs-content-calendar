@@ -95,11 +95,12 @@ router.get('/:key', async (req, res) => {
 });
 
 router.post('/', requireAdmin, validate(clientCreate), async (req, res) => {
-  const { withDefaultPillars, slug, logoUrl, ...data } = req.valid.body;
+  const { withDefaultPillars, slug, logoUrl, secondaryColor, ...data } = req.valid.body;
   const client = await prisma.client.create({
     data: {
       ...data,
       logoUrl: logoUrl || null,
+      secondaryColor: secondaryColor || null,
       slug: await uniqueSlug(slug || data.name),
       pillars: withDefaultPillars ? { create: DEFAULT_PILLARS.map((p, i) => ({ ...p, sortOrder: i })) } : undefined,
     },
@@ -110,12 +111,13 @@ router.post('/', requireAdmin, validate(clientCreate), async (req, res) => {
 router.patch('/:id', requireAdmin, validate(clientUpdate), async (req, res) => {
   const existing = await prisma.client.findUnique({ where: { id: req.params.id } });
   if (!existing) throw notFound('Client not found');
-  const { slug, logoUrl, ...data } = req.valid.body;
+  const { slug, logoUrl, secondaryColor, ...data } = req.valid.body;
   const client = await prisma.client.update({
     where: { id: existing.id },
     data: {
       ...data,
       ...(logoUrl !== undefined ? { logoUrl: logoUrl || null } : {}),
+      ...(secondaryColor !== undefined ? { secondaryColor: secondaryColor || null } : {}),
       ...(slug ? { slug: await uniqueSlug(slug, existing.id) } : {}),
     },
   });

@@ -5,8 +5,9 @@ import { useOverview } from '../api/hooks';
 import { useAuth } from '../context/AuthContext';
 import { monthLabel } from '../lib/dates';
 import { clientHealth, HEALTH } from '../lib/health';
-import { usePins } from '../lib/pins';
-import { EmptyState, FullPageSpinner, KpiTile, PageHeader } from '../components/ui';
+import { CALENDAR_PAGES, usePins } from '../lib/pins';
+import { ClientMark, EmptyState, FullPageSpinner, KpiTile, PageHeader } from '../components/ui';
+import PinPagePicker from '../components/PinPagePicker';
 
 function HealthPill({ health }) {
   const h = HEALTH[health];
@@ -22,7 +23,7 @@ const SORTS = {
 export default function AdminOverview() {
   const { user } = useAuth();
   const { data, isLoading } = useOverview();
-  const { isPinned, toggle } = usePins(user?.id);
+  const { isPinned, toggle, pageOf, setPage } = usePins(user?.id);
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [show, setShow] = useState('all');
@@ -156,11 +157,11 @@ export default function AdminOverview() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {table.map((r) => (
-                <tr key={r.id} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/c/${r.slug}`)}>
+                <tr key={r.id} className="group cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/c/${r.slug}`)}>
                   <td className="px-2 py-2 text-center">
                     <button
-                      className={`cursor-pointer rounded p-1 ${isPinned(r.id) ? 'text-brand-600' : 'text-slate-300 hover:text-slate-700'}`}
-                      title={isPinned(r.id) ? 'Unpin from sidebar' : 'Pin to sidebar'}
+                      className={`cursor-pointer rounded p-1 ${isPinned(r.id) ? 'text-brand-600' : 'text-slate-400 hover:text-slate-700'}`}
+                      title={isPinned(r.id) ? 'Unpin from sidebar' : `Pin to sidebar (opens ${CALENDAR_PAGES.find((p) => p.id === pageOf(r.id))?.label})`}
                       onClick={(e) => {
                         e.stopPropagation();
                         toggle(r.id);
@@ -171,11 +172,18 @@ export default function AdminOverview() {
                   </td>
                   <td className="px-2 py-2">
                     <div className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: r.brandColor }} />
-                      <span className="min-w-0">
+                      <ClientMark client={r} />
+                      <span className="min-w-0 flex-1">
                         <span className="block truncate font-medium text-slate-800">{r.name}</span>
                         {r.industry && <span className="block truncate text-xs text-slate-500">{r.industry}</span>}
                       </span>
+                      {/* choose the page the sidebar pin opens — before or after pinning */}
+                      <PinPagePicker
+                        client={r}
+                        pageOf={pageOf}
+                        setPage={setPage}
+                        className={`hidden shrink-0 sm:block ${isPinned(r.id) ? '' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'}`}
+                      />
                     </div>
                   </td>
                   <td className="px-3 py-2">

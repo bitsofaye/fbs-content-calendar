@@ -1,14 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import {
-  ArrowLeft, BarChart3, Bell, CalendarDays, Inbox, CheckSquare, ChevronDown, ChevronRight, ChevronsUpDown, Columns3, FileSpreadsheet, FolderOpen, LayoutDashboard, Lightbulb, LogOut, Menu, Moon, Rows3, Search, Settings2, Sun, Table2, Tags,
+  ArrowLeft, BarChart3, Bell, CalendarDays, Inbox, CheckSquare, ChevronDown, ChevronRight, ChevronsUpDown, Columns3, FileSpreadsheet, FolderOpen, LayoutDashboard, Lightbulb, LogOut, Menu, Moon, Pin, Rows3, Search, Settings2, Sun, Table2, Tags,
   UserCircle, Users, X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useClients, useNotifications, useOverview, usePosts } from '../api/hooks';
-import { openClientSwitcher, usePins } from '../lib/pins';
+import { CALENDAR_PAGES, calendarPagePath, openClientSwitcher, usePins } from '../lib/pins';
 import { useWorkspace } from '../lib/workspace';
 import ClientSwitcher from './ClientSwitcher';
+import { ClientMark } from './ui';
 import { useBrandTheme } from '../lib/theme';
 import { useTheme } from '../lib/darkMode';
 
@@ -20,11 +21,73 @@ const navCls = ({ isActive }) =>
 const sectionCls = 'mb-1.5 px-2.5 text-[11px] font-medium tracking-[0.08em] text-slate-500 uppercase';
 const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform);
 
-function ClientDot({ color }) {
+const PAGE_ICON = { daily: Rows3, calendar: CalendarDays, sheet: Table2, board: Columns3, ideas: Lightbulb, results: BarChart3, drive: FolderOpen };
+
+// A client in the sidebar's Calendars list: logo + name opens the chosen page; the arrow shows every
+// page of that calendar, and the pin beside a page makes it the one this client opens on.
+function SidebarClient({ client, pageOf, setPage, tag }) {
+  const [open, setOpen] = useState(false);
+  const page = pageOf(client.id);
+  const pageLabel = CALENDAR_PAGES.find((p) => p.id === page)?.label;
   return (
-    <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-slate-200">
-      <span className="h-2 w-2 rounded-full" style={{ background: color }} />
-    </span>
+    <div>
+      <div className="flex items-center gap-0.5">
+        <NavLink to={calendarPagePath(client.slug, page)} className={(s) => `${navCls(s)} min-w-0 flex-1`} title={`Open ${client.name} · ${pageLabel}`}>
+          <ClientMark client={client} />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] leading-snug break-words">{client.name}</span>
+            {page !== 'calendar' && <span className="block text-[10px] leading-tight opacity-70">{pageLabel}</span>}
+          </span>
+          {tag && <span className="text-[10px] text-slate-400">{tag}</span>}
+        </NavLink>
+        <button
+          type="button"
+          className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-500 hover:bg-brand-50 hover:text-brand-700"
+          aria-expanded={open}
+          aria-label={`${open ? 'Hide' : 'Choose'} ${client.name} pages`}
+          title="Choose a page"
+          onClick={(e) => {
+            e.stopPropagation(); // keep the phone menu open
+            setOpen((v) => !v);
+          }}
+        >
+          <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+      {open && (
+        <div className="mt-0.5 mb-1 ml-4 space-y-0.5 border-l border-slate-200 pl-2">
+          {CALENDAR_PAGES.map((p) => {
+            const Icon = PAGE_ICON[p.id];
+            const isDefault = p.id === page;
+            return (
+              <div key={p.id} className="group flex items-center gap-0.5">
+                <Link
+                  to={calendarPagePath(client.slug, p.id)}
+                  className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-[13px] text-slate-600 hover:bg-brand-50 hover:text-brand-700"
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{p.label}</span>
+                </Link>
+                <button
+                  type="button"
+                  className={`flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded text-[11px] ${
+                    isDefault ? 'text-brand-600' : 'text-slate-400 opacity-0 group-hover:opacity-100 hover:text-brand-700 focus-visible:opacity-100'
+                  }`}
+                  title={isDefault ? 'This page opens when you click the client' : 'Open this page when I click the client'}
+                  aria-label={`Open ${client.name} on ${p.label}`}
+                  aria-pressed={isDefault}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPage(client.id, p.id);
+                  }}
+                >
+                  <Pin className="h-3.5 w-3.5" fill={isDefault ? 'currentColor' : 'none'} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -50,7 +113,7 @@ function CalendarLinks({ slug, showBoard, ideaAlerts = 0 }) {
       {showBoard && <ViewLink slug={slug} view="board" icon={Columns3}>Board</ViewLink>}
       <ViewLink slug={slug} view="ideas" icon={Lightbulb}>
         <span className="flex-1">Idea bank</span>
-        {ideaAlerts > 0 && <span className="rounded-full bg-amber-400 px-1.5 text-[11px] font-semibold text-brand-800 tabular-nums" title="Ideas that need attention">{ideaAlerts}</span>}
+        {ideaAlerts > 0 && <span className="rounded-full bg-amber-400 px-1.5 text-[11px] font-semibold text-amber-950 tabular-nums" title="Ideas that need attention">{ideaAlerts}</span>}
       </ViewLink>
       <NavLink to={`/c/${slug}/results`} className={navCls}>
         <BarChart3 className="h-4 w-4" /> Results
@@ -71,10 +134,20 @@ function CalendarNav({ slug, isAdmin, clients, user }) {
   const ideaAlerts = isAdmin && client ? (overview?.ideasNeedingAttention || []).filter((p) => p.client.id === client.id).length : 0;
   return (
     <>
-      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3" style={{ borderLeft: `4px solid ${client?.brandColor || '#cbd5e1'}` }}>
+      <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 py-3 pr-3 pl-4">
+        <span
+          aria-hidden
+          className="absolute inset-y-0 left-0 w-1"
+          style={{ background: `linear-gradient(${client?.brandColor || '#cbd5e1'} 50%, ${client?.secondaryColor || client?.brandColor || '#cbd5e1'} 50%)` }}
+        />
         <div className="eyebrow">{isAdmin ? (client?.slug === 'fbs' ? 'FBS calendar' : 'Client calendar') : 'My calendar'}</div>
-        <div className="mt-1 text-sm leading-snug font-semibold break-words text-slate-800">{name}</div>
-        {client?.industry && <div className="text-[11px] text-slate-500">{client.industry}</div>}
+        <div className="mt-1 flex items-start gap-2">
+          {client?.logoUrl && <ClientMark client={client} size="h-7 w-7" />}
+          <div className="min-w-0">
+            <div className="text-sm leading-snug font-semibold break-words text-slate-800">{name}</div>
+            {client?.industry && <div className="text-[11px] text-slate-500">{client.industry}</div>}
+          </div>
+        </div>
       </div>
       <CalendarLinks slug={slug} showBoard={isAdmin} ideaAlerts={ideaAlerts} />
       <Link
@@ -90,7 +163,7 @@ function CalendarNav({ slug, isAdmin, clients, user }) {
 // FBS team, outside a calendar: the agency-wide pages and the list of calendars to open
 function AdminNav({ user, clients, onNavigate }) {
   const { data: overview } = useOverview();
-  const { pins } = usePins(user?.id);
+  const { pins, pageOf, setPage } = usePins(user?.id);
   const workspace = useWorkspace(clients, user?.id);
   const pinned = clients.filter((c) => pins.includes(c.id) && c.id !== workspace?.id);
   const approvals = overview ? overview.awaitingApproval.length + (overview.clientRequests?.length || 0) : 0;
@@ -115,18 +188,9 @@ function AdminNav({ user, clients, onNavigate }) {
       <div>
         <div className={sectionCls}>Calendars</div>
         <div className="space-y-0.5">
-          {workspace && (
-            <NavLink to={`/c/${workspace.slug}`} className={navCls}>
-              <ClientDot color={workspace.brandColor} />
-              <span className="min-w-0 flex-1 text-[13px] leading-snug break-words">{workspace.name}</span>
-              {workspace.slug === 'fbs' && <span className="text-[10px] text-slate-400">ours</span>}
-            </NavLink>
-          )}
+          {workspace && <SidebarClient client={workspace} pageOf={pageOf} setPage={setPage} tag={workspace.slug === 'fbs' ? 'ours' : null} />}
           {pinned.map((c) => (
-            <NavLink key={c.id} to={`/c/${c.slug}`} className={navCls}>
-              <ClientDot color={c.brandColor} />
-              <span className="min-w-0 text-[13px] leading-snug break-words">{c.name}</span>
-            </NavLink>
+            <SidebarClient key={c.id} client={c} pageOf={pageOf} setPage={setPage} />
           ))}
           {!pinned.length && <p className="px-2.5 py-1 text-xs leading-relaxed text-slate-500">Pin clients with ☆ to keep them here.</p>}
           <button onClick={switcher} className="mt-1 flex w-full cursor-pointer items-center gap-2.5 rounded-md border border-slate-200 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-800">
@@ -176,7 +240,7 @@ function ClientNav({ client, clientId }) {
       <div>
         <div className={sectionCls}>My calendar</div>
         <NavLink to={`/c/${client.slug}?view=daily`} className={navCls}>
-          <ClientDot color={client.brandColor} />
+          <ClientMark client={client} />
           <span className="min-w-0 text-[13px] leading-snug break-words">{client.name}</span>
         </NavLink>
       </div>
@@ -497,7 +561,7 @@ export default function Layout() {
   const location = useLocation();
 
   // a client's own login is shown in that client's colour; FBS accounts always use the FBS colours
-  useBrandTheme(isAdmin ? null : user?.client?.brandColor);
+  useBrandTheme(isAdmin ? null : user?.client?.brandColor, user?.client?.secondaryColor);
   const mainRef = useRef(null);
   useScrollMemory(mainRef);
 

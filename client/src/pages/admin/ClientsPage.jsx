@@ -3,10 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Archive, ArchiveRestore, ExternalLink, Pencil, Plus, RotateCcw, Search, Trash2 } from 'lucide-react';
 import { useAdminMutation, useClients, useClientTrash } from '../../api/hooks';
 import { api } from '../../lib/api';
-import { FullPageSpinner, Modal, Spinner } from '../../components/ui';
+import { ClientMark, FullPageSpinner, Modal, Spinner } from '../../components/ui';
 import { formatDate } from '../../lib/dates';
 
-const blank = { name: '', slug: '', brandColor: '#921259', industry: '', logoUrl: '', withDefaultPillars: true };
+const blank = { name: '', slug: '', brandColor: '#921259', secondaryColor: '', industry: '', logoUrl: '', withDefaultPillars: true };
+const HEX = /^#[0-9a-f]{6}$/i;
 
 function ClientForm({ initial, onClose }) {
   const [f, setF] = useState(initial || blank);
@@ -19,7 +20,7 @@ function ClientForm({ initial, onClose }) {
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
   const submit = async (e) => {
     e.preventDefault();
-    const body = { name: f.name, brandColor: f.brandColor, industry: f.industry || null, logoUrl: f.logoUrl || '' };
+    const body = { name: f.name, brandColor: f.brandColor, secondaryColor: f.secondaryColor || '', industry: f.industry || null, logoUrl: f.logoUrl || '' };
     if (f.slug) body.slug = f.slug;
     if (isNew) body.withDefaultPillars = f.withDefaultPillars;
     await save.mutateAsync(body);
@@ -47,11 +48,35 @@ function ClientForm({ initial, onClose }) {
           <input className="input" value={f.slug} onChange={set('slug')} placeholder="auto from name" pattern="[a-z0-9-]+" />
         </div>
         <div>
-          <label className="label">Brand color</label>
+          <label className="label">Main brand color</label>
           <div className="flex gap-2">
             <input type="color" className="h-[34px] w-12 cursor-pointer rounded border border-slate-300" value={f.brandColor} onChange={set('brandColor')} />
             <input className="input" value={f.brandColor} onChange={set('brandColor')} />
           </div>
+        </div>
+        <div>
+          <label className="label">Second brand color <span className="font-normal text-slate-500">(optional)</span></label>
+          <div className="flex gap-2">
+            <input
+              type="color"
+              className="h-[34px] w-12 cursor-pointer rounded border border-slate-300"
+              value={HEX.test(f.secondaryColor || '') ? f.secondaryColor : f.brandColor}
+              onChange={set('secondaryColor')}
+            />
+            <input className="input" value={f.secondaryColor || ''} onChange={set('secondaryColor')} placeholder="none" pattern="#[0-9a-fA-F]{6}" />
+            {f.secondaryColor && (
+              <button type="button" className="btn-ghost px-2 text-xs" onClick={() => setF((x) => ({ ...x, secondaryColor: '' }))} title="Remove second color">
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="col-span-2 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          <span className="flex h-6 w-16 shrink-0 overflow-hidden rounded-md ring-1 ring-slate-200">
+            <span className="flex-1" style={{ background: HEX.test(f.brandColor) ? f.brandColor : '#cbd5e1' }} />
+            <span className="flex-1" style={{ background: HEX.test(f.secondaryColor || '') ? f.secondaryColor : HEX.test(f.brandColor) ? f.brandColor : '#cbd5e1' }} />
+          </span>
+          The client’s login is themed in these colors: the main color for headings, buttons and menus; the second for badges, highlights and accents.
         </div>
         <div>
           <label className="label">Industry</label>
@@ -211,7 +236,7 @@ export default function ClientsPage() {
               <tr key={c.id} className={c.active ? '' : 'opacity-50'}>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-2">
-                    <span className="h-3 w-3 rounded-full" style={{ background: c.brandColor }} />
+                    <ClientMark client={c} />
                     <Link to={`/c/${c.slug}`} className="font-medium hover:text-brand-700 hover:underline">{c.name}</Link>
                     <span className="text-xs text-slate-500">/{c.slug}</span>
                     {!c.active && <span className="rounded bg-slate-200 px-1.5 text-[10px]">archived</span>}

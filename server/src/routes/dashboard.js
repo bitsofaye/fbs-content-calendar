@@ -21,7 +21,7 @@ router.get('/overview', requireAdmin, async (req, res) => {
   const today = todayISO();
   const { from, to } = monthRange(today);
   const [clients, monthCounts, awaiting, toEdit, upcoming, requests, flaggedIdeas] = await Promise.all([
-    prisma.client.findMany({ where: { active: true, deletedAt: null }, orderBy: { name: 'asc' }, select: { id: true, name: true, slug: true, brandColor: true, logoUrl: true, industry: true } }),
+    prisma.client.findMany({ where: { active: true, deletedAt: null }, orderBy: { name: 'asc' }, select: { id: true, name: true, slug: true, brandColor: true, secondaryColor: true, logoUrl: true, industry: true } }),
     prisma.post.groupBy({
       by: ['clientId', 'status'],
       where: { archivedAt: null, client: { deletedAt: null }, date: { gte: dateFromISO(from), lte: dateFromISO(to) } },

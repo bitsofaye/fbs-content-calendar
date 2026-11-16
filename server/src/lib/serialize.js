@@ -16,7 +16,17 @@ export function publicUser(u) {
     role: u.role,
     clientId: u.clientId,
     active: u.active,
-    client: u.client ? { id: u.client.id, name: u.client.name, slug: u.client.slug, brandColor: u.client.brandColor } : null,
+    client: u.client
+      ? {
+          id: u.client.id,
+          name: u.client.name,
+          slug: u.client.slug,
+          brandColor: u.client.brandColor,
+          secondaryColor: u.client.secondaryColor ?? null,
+          logoUrl: u.client.logoUrl ?? null,
+          industry: u.client.industry ?? null,
+        }
+      : null,
     createdAt: u.createdAt,
   };
 }
