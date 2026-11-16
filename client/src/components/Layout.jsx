@@ -338,8 +338,8 @@ function BrandHeader({ client }) {
         </span>
       )}
       <div className="min-w-0 leading-tight">
-        <div className="text-sm font-semibold tracking-tight break-words text-slate-800">{fbs ? 'FBS' : client.name} Content Calendar</div>
-        <div className="truncate text-[11px] text-slate-500">{fbs ? 'Frontline Business Solutions' : client.industry || 'Managed by Frontline Business Solutions'}</div>
+        <div className="text-sm font-semibold tracking-tight text-slate-800">Content Calendar</div>
+        <div className="truncate text-[11px] text-slate-500">{fbs ? 'Frontline Business Solutions' : client.name}</div>
       </div>
     </div>
   );
