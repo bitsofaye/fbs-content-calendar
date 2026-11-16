@@ -29,6 +29,27 @@ export function useWorkspace(clients, userId) {
       /* storage blocked */
     }
   }, [routeSlug, key]);
+  // another calendar picked in the sidebar card (see useWorkspacePicker)
+  useEffect(() => {
+    const onPick = (e) => setRemembered(e.detail);
+    window.addEventListener('cc-workspace-changed', onPick);
+    return () => window.removeEventListener('cc-workspace-changed', onPick);
+  }, []);
   const slug = routeSlug || remembered;
   return clients.find((c) => c.slug === slug) || homeClient(clients);
+}
+
+/** Like useWorkspace, plus a way to pick another calendar without opening it (the dashboard's sidebar card). */
+export function useWorkspacePicker(clients, userId) {
+  const key = `cc.workspace.${userId || 'anon'}`;
+  const workspace = useWorkspace(clients, userId);
+  const choose = (slug) => {
+    try {
+      localStorage.setItem(key, slug);
+    } catch {
+      /* storage blocked */
+    }
+    window.dispatchEvent(new CustomEvent('cc-workspace-changed', { detail: slug }));
+  };
+  return [workspace, choose];
 }
