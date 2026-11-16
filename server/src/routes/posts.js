@@ -8,6 +8,7 @@ import { dateStr, id, PLACEMENTS, postCreate, postListQuery, postUpdate, STATUSE
 import { assertClientAccess, requireAdmin, resolveClientId } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { assignmentLogs, NEEDS_COMMENT, statusBlock } from '../lib/workflow.js';
+import { generateDrafts } from '../lib/contentGenerator.js';
 
 const router = Router();
 
@@ -309,6 +310,72 @@ router.post('/generate-month', requireAdmin, validate(generateSchema), async (re
   }
   const result = data.length ? await prisma.post.createMany({ data }) : { count: 0 };
   res.status(201).json({ created: result.count, skippedExisting: existing.length });
+});
+
+// ---------- AI content drafts: generate for review, then save the ones kept ----------
+
+const generateContentSchema = z
+  .object({
+    clientId: id,
+    from: dateStr,
+    to: dateStr,
+    postsPerDay: z.number().int().min(1).max(3).default(1),
+    days: z.enum(['every', 'weekdays', 'pillar']).default('every'),
+    placements: z.array(z.enum(PLACEMENTS)).min(1, 'Pick at least one platform'),
+    goal: z.string().trim().min(1, 'Choose a goal').max(300),
+    audience: z.string().trim().max(500).optional().default(''),
+    tone: z.string().trim().min(1).max(200),
+    language: z.string().trim().min(1).max(60),
+    cta: z.string().trim().max(300).optional().default(''),
+    notes: z.string().trim().max(3000).optional().default(''),
+    avoid: z.string().trim().max(500).optional().default(''),
+    hashtags: z.boolean().default(true),
+  })
+  .refine((b) => b.from <= b.to, { message: 'The start date must be before the end date', path: ['to'] })
+  .refine((b) => (dateFromISO(b.to) - dateFromISO(b.from)) / 86400000 <= 31, { message: 'Generate at most one month at a time', path: ['to'] });
+
+router.post('/generate-content', requireAdmin, validate(generateContentSchema), async (req, res) => {
+  const result = await generateDrafts(req.valid.body);
+  res.json(result);
+});
+
+const draftSchema = z.object({
+  date: dateStr,
+  pillarId: id.nullable().optional(),
+  placements: z.array(z.enum(PLACEMENTS)).default([]),
+  format: z.string().max(100).nullable().optional(),
+  title: z.string().trim().min(1).max(200),
+  caption: z.string().max(10000).nullable().optional(),
+  hashtags: z.string().max(2000).nullable().optional(),
+  graphicsIdea: z.string().max(5000).nullable().optional(),
+  storyboard: z.string().max(10000).nullable().optional(),
+});
+const saveDraftsSchema = z.object({ clientId: id, drafts: z.array(draftSchema).min(1).max(200) });
+
+router.post('/generate-content/save', requireAdmin, validate(saveDraftsSchema), async (req, res) => {
+  const { clientId, drafts } = req.valid.body;
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true } });
+  if (!client) throw notFound('Client not found');
+  // only link pillars that really belong to this client
+  const pillarIds = new Set((await prisma.pillar.findMany({ where: { clientId }, select: { id: true } })).map((p) => p.id));
+  const result = await prisma.post.createMany({
+    data: drafts.map((d) => ({
+      clientId,
+      date: dateFromISO(d.date),
+      pillarId: d.pillarId && pillarIds.has(d.pillarId) ? d.pillarId : null,
+      title: d.title,
+      status: 'IN_PROGRESS',
+      placements: d.placements,
+      format: d.format || null,
+      caption: d.caption || null,
+      hashtags: d.hashtags || null,
+      graphicsIdea: d.graphicsIdea || null,
+      storyboard: d.storyboard || null,
+      remarks: 'Drafted with AI: review before sending for approval',
+      createdById: req.user.id,
+    })),
+  });
+  res.status(201).json({ created: result.count });
 });
 
 // ---------- approval workflow ----------

@@ -11,6 +11,7 @@ import { formatDate, monthBounds, monthGrid, monthKey, monthLabel, shiftMonth, t
 import { EmptyState, fmtNumber, FullPageSpinner, KpiTile, PillarDot } from '../components/ui';
 import { usePins } from '../lib/pins';
 import PostDrawer from '../components/PostDrawer';
+import GenerateContentModal from '../components/GenerateContentModal';
 import PillarMix from '../components/PillarMix';
 import CalendarView from './views/CalendarView';
 import SheetView from './views/SheetView';
@@ -44,6 +45,7 @@ export default function ClientDashboard() {
   const [showDetails, setShowDetails] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showAllAwaiting, setShowAllAwaiting] = useState(false);
+  const [genOpen, setGenOpen] = useState(false);
 
   const update = useCallback(
     (patch) =>
@@ -175,6 +177,19 @@ export default function ClientDashboard() {
                   <MoreHorizontal className="h-4 w-4" />
                 </summary>
                 <div className="absolute right-0 z-30 mt-1 w-64 rounded-xl border border-slate-200 bg-white p-1 shadow-lift">
+                  <button
+                    className="flex w-full cursor-pointer items-start gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-brand-50"
+                    onClick={(e) => {
+                      e.currentTarget.closest('details').open = false;
+                      setGenOpen(true);
+                    }}
+                  >
+                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+                    <span>
+                      <span className="block font-medium text-slate-800">Generate content</span>
+                      <span className="block text-xs text-slate-500">AI drafts for a day, a week or the month</span>
+                    </span>
+                  </button>
                   <button
                     className="flex w-full cursor-pointer items-start gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-brand-50"
                     disabled={generate.isPending}
@@ -335,6 +350,7 @@ export default function ClientDashboard() {
           }}
         />
       )}
+      {isAdmin && genOpen && <GenerateContentModal open={genOpen} onClose={() => setGenOpen(false)} client={client} day={day} month={month} />}
     </div>
   );
 }

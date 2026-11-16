@@ -145,6 +145,14 @@ export const useGenerateMonth = () =>
     success: (d) => (d.created ? `Created ${d.created} empty slots` : 'Every pillar slot already has a post'),
   });
 
+// AI drafts: generating can take a few minutes for a whole month, so allow up to 10
+export const useGenerateContent = () =>
+  useApiMutation(async (body) => (await api.post('/posts/generate-content', body, { timeout: 10 * 60 * 1000 })).data, { invalidate: false });
+export const useSaveGeneratedContent = () =>
+  useApiMutation(async (body) => (await api.post('/posts/generate-content/save', body)).data, {
+    success: (d) => `Added ${d.created} post${d.created === 1 ? '' : 's'} to the calendar`,
+  });
+
 // Generic admin CRUD helper for clients / pillars / themes / users
 export function useAdminMutation(fn, keys, success) {
   const qc = useQueryClient();
