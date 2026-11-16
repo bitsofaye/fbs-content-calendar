@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import {
-  ArrowLeft, BarChart3, Bell, CalendarDays, Inbox, CheckSquare, ChevronDown, ChevronRight, ChevronsUpDown, Columns3, FileSpreadsheet, FolderOpen, LayoutDashboard, Lightbulb, LogOut, Menu, Moon, Pin, Rows3, Search, Settings2, Sun, Table2, Tags,
+  ArrowLeft, BarChart3, Bell, CalendarDays, Inbox, CheckSquare, ChevronDown, ChevronRight, ChevronsUpDown, Columns3, FileSpreadsheet, FolderOpen, LayoutDashboard, Lightbulb, LogOut, Menu, Moon, Pin, Rows3, Search, Settings2, Star, Sun, Table2, Tags,
   UserCircle, Users, X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,7 @@ import { CALENDAR_PAGES, calendarPagePath, openClientSwitcher, usePins } from '.
 import { useWorkspace } from '../lib/workspace';
 import ClientSwitcher from './ClientSwitcher';
 import { ClientMark } from './ui';
+import PinPagePicker from './PinPagePicker';
 import { useBrandTheme } from '../lib/theme';
 import { useTheme } from '../lib/darkMode';
 
@@ -23,9 +24,88 @@ const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform
 
 const PAGE_ICON = { daily: Rows3, calendar: CalendarDays, sheet: Table2, board: Columns3, ideas: Lightbulb, results: BarChart3, drive: FolderOpen };
 
+const stop = (e) => e.stopPropagation(); // clicks that should keep the phone menu open
+
+// One client in the workspace dropdown: click the name to choose the page it opens on, ☆ pins it.
+function OtherClient({ client, pins }) {
+  const [open, setOpen] = useState(false);
+  const pinned = pins.isPinned(client.id);
+  return (
+    <li>
+      <div className="flex items-center gap-0.5">
+        <button
+          type="button"
+          className={`flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] ${open ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-brand-50 hover:text-brand-700'}`}
+          aria-expanded={open}
+          onClick={(e) => {
+            stop(e);
+            setOpen((v) => !v);
+          }}
+        >
+          <ClientMark client={client} />
+          <span className="min-w-0 flex-1 leading-snug break-words">{client.name}</span>
+        </button>
+        <button
+          type="button"
+          className={`flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded ${pinned ? 'text-brand-600' : 'text-slate-400 hover:text-brand-700'}`}
+          title={pinned ? 'Unpin from sidebar' : `Pin to sidebar (opens ${CALENDAR_PAGES.find((p) => p.id === pins.pageOf(client.id))?.label})`}
+          aria-label={pinned ? `Unpin ${client.name}` : `Pin ${client.name}`}
+          aria-pressed={pinned}
+          onClick={(e) => {
+            stop(e);
+            pins.toggle(client.id);
+          }}
+        >
+          <Star className="h-3.5 w-3.5" fill={pinned ? 'currentColor' : 'none'} />
+        </button>
+      </div>
+      {open && (
+        <div className="mt-1 mb-1.5 ml-7 flex items-center gap-1.5">
+          <PinPagePicker client={client} pageOf={pins.pageOf} setPage={pins.setPage} className="min-w-0 flex-1 py-1" />
+          <Link to={calendarPagePath(client.slug, pins.pageOf(client.id))} className="btn-secondary px-2 py-0.5 text-[11px]">
+            Open
+          </Link>
+        </div>
+      )}
+    </li>
+  );
+}
+
+// The rest of the clients, under the arrow next to the current calendar: search, choose a page, pin.
+function OtherClients({ clients, pins }) {
+  const [q, setQ] = useState('');
+  const s = q.trim().toLowerCase();
+  const shown = clients.filter((c) => !s || c.name.toLowerCase().includes(s) || (c.industry || '').toLowerCase().includes(s));
+  return (
+    <div className="mt-1 mb-2 rounded-lg border border-slate-200 bg-slate-50 p-1.5">
+      <div className="px-1 pb-1 text-[10px] font-medium tracking-[0.08em] text-slate-500 uppercase">Other clients · {clients.length}</div>
+      {clients.length > 6 && (
+        <div className="relative mb-1">
+          <Search className="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          <input
+            className="w-full rounded-md border border-slate-200 bg-white py-1 pr-2 pl-7 text-[12px] text-slate-700 outline-none placeholder:text-slate-400 focus:border-brand-500"
+            placeholder="Search clients…"
+            value={q}
+            onClick={stop}
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </div>
+      )}
+      <ul className="max-h-72 space-y-0.5 overflow-y-auto">
+        {shown.map((c) => (
+          <OtherClient key={c.id} client={c} pins={pins} />
+        ))}
+        {!shown.length && <li className="px-2 py-2 text-[12px] text-slate-500">{clients.length ? 'No client matches.' : 'No other clients yet.'}</li>}
+      </ul>
+      <p className="px-1 pt-1 text-[10px] leading-snug text-slate-500">Click a client to choose its page, then ☆ to pin it.</p>
+    </div>
+  );
+}
+
 // A client in the sidebar's Calendars list: logo + name opens the chosen page; the arrow shows every
 // page of that calendar, and the pin beside a page makes it the one this client opens on.
-function SidebarClient({ client, pageOf, setPage, tag }) {
+// With `others` (the current calendar's row), the arrow also lists all the other clients.
+function SidebarClient({ client, pageOf, setPage, tag, others, pins }) {
   const [open, setOpen] = useState(false);
   const page = pageOf(client.id);
   const pageLabel = CALENDAR_PAGES.find((p) => p.id === page)?.label;
@@ -44,8 +124,8 @@ function SidebarClient({ client, pageOf, setPage, tag }) {
           type="button"
           className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-500 hover:bg-brand-50 hover:text-brand-700"
           aria-expanded={open}
-          aria-label={`${open ? 'Hide' : 'Choose'} ${client.name} pages`}
-          title="Choose a page"
+          aria-label={others ? `${open ? 'Hide' : 'Show'} other clients and ${client.name} pages` : `${open ? 'Hide' : 'Choose'} ${client.name} pages`}
+          title={others ? 'Other clients and pages' : 'Choose a page'}
           onClick={(e) => {
             e.stopPropagation(); // keep the phone menu open
             setOpen((v) => !v);
@@ -54,8 +134,10 @@ function SidebarClient({ client, pageOf, setPage, tag }) {
           <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
       </div>
+      {open && others && <OtherClients clients={others} pins={pins} />}
       {open && (
         <div className="mt-0.5 mb-1 ml-4 space-y-0.5 border-l border-slate-200 pl-2">
+          {others && <div className="px-2 pb-0.5 text-[10px] font-medium tracking-[0.08em] text-slate-500 uppercase">{client.name} pages</div>}
           {CALENDAR_PAGES.map((p) => {
             const Icon = PAGE_ICON[p.id];
             const isDefault = p.id === page;
@@ -163,7 +245,8 @@ function CalendarNav({ slug, isAdmin, clients, user }) {
 // FBS team, outside a calendar: the agency-wide pages and the list of calendars to open
 function AdminNav({ user, clients, onNavigate }) {
   const { data: overview } = useOverview();
-  const { pins, pageOf, setPage } = usePins(user?.id);
+  const pinStore = usePins(user?.id);
+  const { pins, pageOf, setPage } = pinStore;
   const workspace = useWorkspace(clients, user?.id);
   const pinned = clients.filter((c) => pins.includes(c.id) && c.id !== workspace?.id);
   const approvals = overview ? overview.awaitingApproval.length + (overview.clientRequests?.length || 0) : 0;
@@ -188,7 +271,16 @@ function AdminNav({ user, clients, onNavigate }) {
       <div>
         <div className={sectionCls}>Calendars</div>
         <div className="space-y-0.5">
-          {workspace && <SidebarClient client={workspace} pageOf={pageOf} setPage={setPage} tag={workspace.slug === 'fbs' ? 'ours' : null} />}
+          {workspace && (
+            <SidebarClient
+              client={workspace}
+              pageOf={pageOf}
+              setPage={setPage}
+              tag={workspace.slug === 'fbs' ? 'ours' : null}
+              others={clients.filter((c) => c.id !== workspace.id)}
+              pins={pinStore}
+            />
+          )}
           {pinned.map((c) => (
             <SidebarClient key={c.id} client={c} pageOf={pageOf} setPage={setPage} />
           ))}
