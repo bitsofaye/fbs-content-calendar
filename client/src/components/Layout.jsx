@@ -7,10 +7,10 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useClients, useNotifications, useOverview, usePosts } from '../api/hooks';
 import { CALENDAR_PAGES, calendarPagePath, openClientSwitcher, usePins } from '../lib/pins';
-import { useWorkspace } from '../lib/workspace';
+import { HOME_SLUG, useWorkspace } from '../lib/workspace';
 import ClientSwitcher from './ClientSwitcher';
 import { ClientMark } from './ui';
-import { useBrandTheme } from '../lib/theme';
+import { textOn, useBrandTheme } from '../lib/theme';
 import { useTheme } from '../lib/darkMode';
 
 const navCls = ({ isActive }) =>
@@ -204,7 +204,8 @@ function CalendarLinks({ slug, showBoard, ideaAlerts = 0 }) {
 function MainLinks({ isAdmin = false, clientId }) {
   const { data: overview } = useOverview({ enabled: isAdmin });
   const { data: waiting = [] } = usePosts({ clientId, status: 'FOR_APPROVAL', limit: 300 }, { enabled: !isAdmin && !!clientId });
-  const approvals = isAdmin ? (overview ? overview.awaitingApproval.length + (overview.clientRequests?.length || 0) : 0) : waiting.length;
+  const { user } = useAuth();
+  const approvals = isAdmin ? (overview ? (overview.myApprovals?.length || 0) + (overview.myEdits?.length || 0) : 0) : waiting.filter((p) => !p.approver?.id || p.approver.id === user?.id).length;
   return (
     <div className="space-y-0.5">
       <NavLink to={isAdmin ? '/admin' : '/overview'} end className={navCls}>
@@ -320,6 +321,39 @@ function ClientNav({ client, clientId }) {
   );
 }
 
+// Top of the sidebar: "FBS Content Calendar" with the FBS logo, or, once a client's calendar is open
+// (and always for a client's own login), that client's name and logo instead
+function BrandHeader({ client }) {
+  if (!client || client.slug === HOME_SLUG) {
+    return (
+      <div className="leading-tight">
+        <img src="/brand/fbs-logo.png" alt="Frontline Business Solutions" className="h-7 w-auto dark:hidden" />
+        <img src="/brand/fbs-logo-white.png" alt="Frontline Business Solutions" className="hidden h-7 w-auto dark:block" />
+        <div className="mt-1 text-[13px] font-semibold tracking-tight text-slate-800">FBS Content Calendar</div>
+      </div>
+    );
+  }
+  const initial = (client.name || '?').trim().charAt(0).toUpperCase();
+  return (
+    <div className="flex min-w-0 items-center gap-2.5">
+      {client.logoUrl ? (
+        <ClientMark client={client} size="h-9 w-9" />
+      ) : (
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold shadow-sm"
+          style={{ background: client.brandColor || '#921259', color: textOn(client.brandColor || '#921259') }}
+        >
+          {initial}
+        </span>
+      )}
+      <div className="min-w-0 leading-tight">
+        <div className="text-[13px] font-semibold tracking-tight break-words text-slate-800">{client.name}</div>
+        <div className="text-[11px] text-slate-500">Content Calendar</div>
+      </div>
+    </div>
+  );
+}
+
 function Sidebar({ onNavigate }) {
   const { user, isAdmin, logout } = useAuth();
   const { data: clients = [] } = useClients();
@@ -329,14 +363,8 @@ function Sidebar({ onNavigate }) {
 
   return (
     <div className="flex h-full flex-col border-r border-slate-200/80 bg-white text-slate-700">
-      <div className="flex h-12 items-center gap-2.5 border-b border-slate-100 px-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 shadow-sm">
-          <CalendarDays className="h-5 w-5 text-white" />
-        </div>
-        <div className="leading-tight">
-          <div className="text-sm font-semibold tracking-tight text-slate-800">Content Calendar</div>
-          <div className="text-[11px] text-slate-500">Frontline Business Solutions</div>
-        </div>
+      <div className="flex min-h-12 items-center border-b border-slate-100 px-4 py-2.5">
+        <BrandHeader client={isAdmin ? (calendarSlug ? clients.find((c) => c.slug === calendarSlug) : null) : user?.client} />
       </div>
 
       <nav className="sidebar-scroll flex-1 space-y-4 overflow-y-auto px-3 py-3" onClick={onNavigate}>

@@ -76,6 +76,7 @@ router.get('/overview', requireAdmin, async (req, res) => {
     awaitingApproval: serializePosts(awaiting),
     myApprovals: serializePosts(awaiting.filter((p) => p.approverId === req.user.id)),
     needsEdits: serializePosts(toEdit),
+    myEdits: serializePosts(toEdit.filter((p) => p.assigneeId === req.user.id)),
     upcoming: serializePosts(upcoming),
     clientRequests: serializePosts(requests),
     ideasNeedingAttention: serializePosts(flaggedIdeas),

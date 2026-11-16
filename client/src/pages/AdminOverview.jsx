@@ -60,7 +60,7 @@ export default function AdminOverview() {
     .sort(SORTS[sort].fn);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-7 p-4 sm:p-8">
+    <div className="w-full space-y-7 p-4 sm:p-8">
       <PageHeader
         eyebrow={`Dashboard · ${monthLabel(data.today.slice(0, 7))}`}
         title={`Good day, ${user.name.split(' ')[0]}`}
@@ -75,9 +75,9 @@ export default function AdminOverview() {
       {/* 1. four numbers for all clients together */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KpiTile solid to="/admin?sort=posts" label="Posts this month" value={totals.posts} icon={CalendarRange} hint={`${totals.published} published`} />
-        <KpiTile to="/admin/approvals?tab=waiting" label="Waiting for approval" value={totals.waiting} icon={Clock} tone="amber" hint="all clients" />
-        <KpiTile to="/admin/approvals?tab=edits" label="Needs edits" value={totals.edits} icon={ListChecks} tone="orange" hint="to edit / rejected" />
-        <KpiTile to="/admin/approvals?tab=next7" label="Next 7 days" value={totals.next7} icon={CalendarClock} tone="brand" hint="posts going out" />
+        <KpiTile label="Waiting for approval" value={totals.waiting} icon={Clock} tone="amber" hint="all clients" />
+        <KpiTile label="Needs edits" value={totals.edits} icon={ListChecks} tone="orange" hint="to edit / rejected" />
+        <KpiTile label="Next 7 days" value={totals.next7} icon={CalendarClock} tone="brand" hint="posts going out" />
       </div>
 
       {/* 2. only the clients that need something */}

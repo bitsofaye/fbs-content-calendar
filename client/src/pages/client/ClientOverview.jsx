@@ -52,7 +52,7 @@ export default function ClientOverview() {
   const next7 = d.next7 || NONE;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-7 p-4 sm:p-8">
+    <div className="w-full space-y-7 p-4 sm:p-8">
       <PageHeader
         eyebrow={`Dashboard · ${monthLabel(month)}`}
         title={`Good day, ${user.name.split(' ')[0]}`}
@@ -70,7 +70,7 @@ export default function ClientOverview() {
       {/* the numbers */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KpiTile solid to={`/c/${client.slug}`} label="Posts this month" value={d.totals.total} icon={CalendarRange} hint={d.totals.ads ? `${d.totals.ads} ads` : 'organic & ads'} />
-        <KpiTile to="/approvals?tab=published" label="Published" value={d.totals.published} icon={CheckCircle2} tone="green" hint={d.totals.total ? `${Math.round((d.totals.published / d.totals.total) * 100)}% of the month` : undefined} />
+        <KpiTile label="Published" value={d.totals.published} icon={CheckCircle2} tone="green" hint={d.totals.total ? `${Math.round((d.totals.published / d.totals.total) * 100)}% of the month` : undefined} />
         <KpiTile to="/approvals" label="Waiting for your approval" value={awaiting.length} icon={Clock} tone="amber" hint="all dates" />
         <KpiTile to="/approvals?tab=revising" label="Being revised by FBS" value={beingRevised.length} icon={ListChecks} tone="orange" hint="after your feedback" />
       </div>
