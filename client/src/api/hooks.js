@@ -85,6 +85,16 @@ export const useClientTrash = (options = {}) =>
   useQuery({ queryKey: ['clientTrash'], enabled: options.enabled !== false, queryFn: async () => (await api.get('/clients/trash')).data });
 
 // a client's shared Google Drive folders / files
+// The files inside a shared Drive folder (Google Drive API on the server; configured:false when it has no key)
+export const useDriveFolder = (clientId, folderId) =>
+  useQuery({
+    queryKey: ['driveFolder', clientId, folderId],
+    enabled: Boolean(clientId && folderId),
+    staleTime: 60 * 1000,
+    retry: false,
+    queryFn: async () => (await api.get('/drive-links/browse', { params: { clientId, folderId } })).data,
+  });
+
 export const useDriveLinks = (clientId) =>
   useQuery({
     queryKey: ['driveLinks', clientId],

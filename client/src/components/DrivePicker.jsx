@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, FileText, FolderOpen, Link2, Plus } from 'lucide-react';
 import { useDriveLinks } from '../api/hooks';
-import { driveInfo, folderEmbedUrl, isHttps } from '../lib/drive';
+import { driveInfo, isHttps } from '../lib/drive';
+import DriveBrowser from './DriveBrowser';
 import { Modal, Spinner } from './ui';
 
 const ICON = { folder: FolderOpen, file: FileText, doc: FileText, other: Link2 };
@@ -16,12 +17,23 @@ export default function DrivePicker({ open, onClose, client, isAdmin, onAdd }) {
   const [picked, setPicked] = useState(() => new Set());
   const [browsing, setBrowsing] = useState(null); // a Drive link whose folder is shown
   const [pasted, setPasted] = useState('');
+  const [files, setFiles] = useState(() => new Map()); // files ticked while browsing: url → file
 
   const close = () => {
     setPicked(new Set());
     setBrowsing(null);
     setPasted('');
+    setFiles(new Map());
     onClose();
+  };
+  const toggleFile = (f) => setFiles((m) => {
+    const n = new Map(m);
+    n.has(f.url) ? n.delete(f.url) : n.set(f.url, f);
+    return n;
+  });
+  const addFiles = () => {
+    onAdd([...files.keys(), ...(isHttps(pasted) ? [pasted.trim()] : [])]);
+    close();
   };
   const toggle = (id) => setPicked((s) => {
     const n = new Set(s);
@@ -44,22 +56,28 @@ export default function DrivePicker({ open, onClose, client, isAdmin, onAdd }) {
       open={open}
       onClose={close}
       wide
-      title={browsing ? browsing.title : 'Add from Drive'}
+      title={browsing ? `Browse · ${browsing.title}` : 'Add from Drive'}
       footer={
         browsing ? (
           <div className="flex w-full flex-wrap items-center gap-2">
-            <button className="btn-secondary" onClick={() => { setBrowsing(null); setPasted(''); }}>
+            <button className="btn-secondary" onClick={() => { setBrowsing(null); setPasted(''); setFiles(new Map()); }}>
               <ArrowLeft className="h-4 w-4" /> Back
             </button>
             <input
-              className={`input min-w-[220px] flex-1 ${pasted.trim() && !isHttps(pasted) ? 'border-red-400' : ''}`}
-              placeholder="Paste the link of a file from this folder"
+              className={`input min-w-[200px] flex-1 ${pasted.trim() && !isHttps(pasted) ? 'border-red-400' : ''}`}
+              placeholder="…or paste a file link"
               value={pasted}
               onChange={(e) => setPasted(e.target.value)}
             />
-            <button className="btn-primary" disabled={!isHttps(pasted)} onClick={addPasted}>
-              <Plus className="h-4 w-4" /> Add file
-            </button>
+            {files.size > 0 ? (
+              <button className="btn-primary" onClick={addFiles}>
+                <Plus className="h-4 w-4" /> Add {files.size + (isHttps(pasted) ? 1 : 0)} file{files.size + (isHttps(pasted) ? 1 : 0) === 1 ? '' : 's'}
+              </button>
+            ) : (
+              <button className="btn-primary" disabled={!isHttps(pasted)} onClick={addPasted}>
+                <Plus className="h-4 w-4" /> Add file
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -72,15 +90,7 @@ export default function DrivePicker({ open, onClose, client, isAdmin, onAdd }) {
       }
     >
       {browsing ? (
-        <div className="space-y-2">
-          <iframe src={folderEmbedUrl(folderId)} title={browsing.title} className="h-[50vh] w-full rounded-lg border border-slate-200 bg-slate-50" />
-          <p className="text-xs text-slate-500">
-            Click a file to open it in Drive, copy its link (Share → Copy link) and paste it below. If the folder looks empty, it isn’t shared as “Anyone with the link”:{' '}
-            <a href={browsing.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-brand-600 hover:underline">
-              open it in Drive <ExternalLink className="h-3 w-3" />
-            </a>
-          </p>
-        </div>
+        <DriveBrowser client={client} root={{ id: folderId, title: browsing.title, url: browsing.url }} picked={files} onToggle={toggleFile} />
       ) : isLoading ? (
         <div className="flex justify-center py-8"><Spinner /></div>
       ) : links.length ? (
