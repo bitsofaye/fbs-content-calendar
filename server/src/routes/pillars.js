@@ -28,6 +28,14 @@ router.patch('/:id', requireAdmin, validate(pillarUpdate), async (req, res) => {
   res.json({ pillar });
 });
 
+// Delete all of one client's pillars (their posts keep existing, just without a pillar)
+router.delete('/', requireAdmin, async (req, res) => {
+  const clientId = typeof req.query.clientId === 'string' ? req.query.clientId : '';
+  if (!clientId) throw badRequest('clientId is required');
+  const { count } = await prisma.pillar.deleteMany({ where: { clientId } });
+  res.json({ ok: true, count });
+});
+
 router.delete('/:id', requireAdmin, async (req, res) => {
   const pillar = await prisma.pillar.findUnique({ where: { id: req.params.id } });
   if (!pillar) throw notFound('Pillar not found');
