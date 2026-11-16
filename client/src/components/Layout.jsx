@@ -324,31 +324,22 @@ function ClientNav({ client, clientId }) {
 // Top of the sidebar: "FBS Content Calendar" with the FBS logo, or, once a client's calendar is open
 // (and always for a client's own login), that client's name and logo instead
 function BrandHeader({ client }) {
-  if (!client || client.slug === HOME_SLUG) {
-    return (
-      <div className="leading-tight">
-        <img src="/brand/fbs-logo.png" alt="Frontline Business Solutions" className="h-7 w-auto dark:hidden" />
-        <img src="/brand/fbs-logo-white.png" alt="Frontline Business Solutions" className="hidden h-7 w-auto dark:block" />
-        <div className="mt-1 text-[13px] font-semibold tracking-tight text-slate-800">FBS Content Calendar</div>
-      </div>
-    );
-  }
-  const initial = (client.name || '?').trim().charAt(0).toUpperCase();
+  const fbs = !client || client.slug === HOME_SLUG;
+  const color = client?.brandColor || '#921259';
   return (
     <div className="flex min-w-0 items-center gap-2.5">
-      {client.logoUrl ? (
-        <ClientMark client={client} size="h-9 w-9" />
+      {fbs || client.logoUrl ? (
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#fff] shadow-sm ring-1 ring-slate-200">
+          <img src={fbs ? '/brand/fbs-mark.png' : client.logoUrl} alt="" className={fbs ? 'h-6 w-6 object-contain' : 'h-full w-full object-contain'} />
+        </span>
       ) : (
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold shadow-sm"
-          style={{ background: client.brandColor || '#921259', color: textOn(client.brandColor || '#921259') }}
-        >
-          {initial}
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold shadow-sm" style={{ background: color, color: textOn(color) }}>
+          {(client.name || '?').trim().charAt(0).toUpperCase()}
         </span>
       )}
       <div className="min-w-0 leading-tight">
-        <div className="text-[13px] font-semibold tracking-tight break-words text-slate-800">{client.name}</div>
-        <div className="text-[11px] text-slate-500">Content Calendar</div>
+        <div className="text-sm font-semibold tracking-tight break-words text-slate-800">{fbs ? 'FBS' : client.name} Content Calendar</div>
+        <div className="truncate text-[11px] text-slate-500">{fbs ? 'Frontline Business Solutions' : client.industry || 'Managed by Frontline Business Solutions'}</div>
       </div>
     </div>
   );
@@ -363,7 +354,7 @@ function Sidebar({ onNavigate }) {
 
   return (
     <div className="flex h-full flex-col border-r border-slate-200/80 bg-white text-slate-700">
-      <div className="flex min-h-12 items-center border-b border-slate-100 px-4 py-2.5">
+      <div className="flex min-h-12 items-center border-b border-slate-100 px-4 py-2">
         <BrandHeader client={isAdmin ? (calendarSlug ? clients.find((c) => c.slug === calendarSlug) : null) : user?.client} />
       </div>
 
