@@ -59,7 +59,7 @@ export default function ClientOverview() {
         description={`Your ${client.name} content calendar with FBS.`}
         actions={
           <button className="btn-primary" onClick={() => setDraft({ date: today, status: 'IN_PROGRESS' })}>
-            <Plus className="h-4 w-4" /> Add post
+            <Plus className="h-4 w-4" /> New post
           </button>
         }
       />

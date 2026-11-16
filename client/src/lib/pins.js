@@ -11,7 +11,7 @@ export const CALENDAR_PAGES = [
   { id: 'daily', label: "What's today" },
   { id: 'calendar', label: 'Calendar' },
   { id: 'sheet', label: 'Content plan' },
-  { id: 'board', label: 'Board' },
+  { id: 'board', label: 'Status board' },
   { id: 'ideas', label: 'Idea bank' },
   { id: 'results', label: 'Results' },
   { id: 'drive', label: 'Drive links' },

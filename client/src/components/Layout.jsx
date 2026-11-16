@@ -168,20 +168,51 @@ function TodayLink({ slug, all = false }) {
 // The buttons of one calendar — shared by the FBS team (any client) and client logins (their own)
 function CalendarLinks({ slug, showBoard, ideaAlerts = 0 }) {
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-3">
       <TodayLink slug={slug} />
-      <ViewLink slug={slug} view="calendar" icon={CalendarDays}>Calendar</ViewLink>
-      <ViewLink slug={slug} view="sheet" icon={Table2}>Content plan</ViewLink>
-      {showBoard && <ViewLink slug={slug} view="board" icon={Columns3}>Board</ViewLink>}
-      <ViewLink slug={slug} view="ideas" icon={Lightbulb}>
-        <span className="flex-1">Idea bank</span>
-        {ideaAlerts > 0 && <span className="rounded-full bg-amber-400 px-1.5 text-[11px] font-semibold text-amber-950 tabular-nums" title="Ideas that need attention">{ideaAlerts}</span>}
-      </ViewLink>
-      <NavLink to={`/c/${slug}/results`} className={navCls}>
-        <BarChart3 className="h-4 w-4" /> Results
+      <div>
+        <div className={sectionCls}>Plan</div>
+        <div className="space-y-0.5">
+          <ViewLink slug={slug} view="calendar" icon={CalendarDays}>Calendar</ViewLink>
+          <ViewLink slug={slug} view="sheet" icon={Table2}>Content plan</ViewLink>
+          {showBoard && <ViewLink slug={slug} view="board" icon={Columns3}>Status board</ViewLink>}
+        </div>
+      </div>
+      <div>
+        <div className={sectionCls}>Ideas & files</div>
+        <div className="space-y-0.5">
+          <ViewLink slug={slug} view="ideas" icon={Lightbulb}>
+            <span className="flex-1">Idea bank</span>
+            {ideaAlerts > 0 && <span className="rounded-full bg-amber-400 px-1.5 text-[11px] font-semibold text-amber-950 tabular-nums" title="Ideas that need attention">{ideaAlerts}</span>}
+          </ViewLink>
+          <NavLink to={`/c/${slug}/drive`} className={navCls}>
+            <FolderOpen className="h-4 w-4" /> Drive links
+          </NavLink>
+        </div>
+      </div>
+      <div>
+        <div className={sectionCls}>Report</div>
+        <NavLink to={`/c/${slug}/results`} className={navCls}>
+          <BarChart3 className="h-4 w-4" /> Results
+        </NavLink>
+      </div>
+    </div>
+  );
+}
+
+// Dashboard and Approvals stay at the top of the sidebar on every page, inside a calendar too
+function MainLinks({ isAdmin = false, clientId }) {
+  const { data: overview } = useOverview({ enabled: isAdmin });
+  const { data: waiting = [] } = usePosts({ clientId, status: 'FOR_APPROVAL', limit: 300 }, { enabled: !isAdmin && !!clientId });
+  const approvals = isAdmin ? (overview ? overview.awaitingApproval.length + (overview.clientRequests?.length || 0) : 0) : waiting.length;
+  return (
+    <div className="space-y-0.5">
+      <NavLink to={isAdmin ? '/admin' : '/overview'} end className={navCls}>
+        <LayoutDashboard className="h-4 w-4" /> Dashboard
       </NavLink>
-      <NavLink to={`/c/${slug}/drive`} className={navCls}>
-        <FolderOpen className="h-4 w-4" /> Drive links
+      <NavLink to={isAdmin ? '/admin/approvals' : '/approvals'} className={navCls}>
+        <CheckSquare className="h-4 w-4" /> <span className="flex-1">Approvals</span>
+        {approvals > 0 && <span className="rounded-full bg-brand-500 px-1.5 text-[11px] font-semibold text-white tabular-nums">{approvals}</span>}
       </NavLink>
     </div>
   );
@@ -196,6 +227,7 @@ function CalendarNav({ slug, isAdmin, clients, user }) {
   const ideaAlerts = isAdmin && client ? (overview?.ideasNeedingAttention || []).filter((p) => p.client.id === client.id).length : 0;
   return (
     <>
+      <MainLinks isAdmin={isAdmin} clientId={user?.clientId} />
       <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 py-3 pr-3 pl-4">
         <span
           aria-hidden
@@ -212,22 +244,14 @@ function CalendarNav({ slug, isAdmin, clients, user }) {
         </div>
       </div>
       <CalendarLinks slug={slug} showBoard={isAdmin} ideaAlerts={ideaAlerts} />
-      <Link
-        to={isAdmin ? '/admin' : '/overview'}
-        className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-brand-50 hover:text-brand-700"
-      >
-        <LayoutDashboard className="h-4 w-4" /> Back to Dashboard
-      </Link>
     </>
   );
 }
 
 // FBS team, outside a calendar: the agency-wide pages and the list of calendars to open
 function AdminNav({ user, clients, onNavigate }) {
-  const { data: overview } = useOverview();
   const pinStore = usePins(user?.id);
   const workspace = useWorkspace(clients, user?.id);
-  const approvals = overview ? overview.awaitingApproval.length + (overview.clientRequests?.length || 0) : 0;
   const switcher = (e) => {
     e.stopPropagation();
     onNavigate?.();
@@ -236,25 +260,24 @@ function AdminNav({ user, clients, onNavigate }) {
 
   return (
     <>
-      <div className="space-y-0.5">
-        <NavLink to="/admin" end className={navCls}>
-          <LayoutDashboard className="h-4 w-4" /> Dashboard
-        </NavLink>
-        <NavLink to="/admin/approvals" className={navCls}>
-          <CheckSquare className="h-4 w-4" /> <span className="flex-1">Approvals</span>
-          {approvals > 0 && <span className="rounded-full bg-brand-500 px-1.5 text-[11px] font-semibold text-white tabular-nums">{approvals}</span>}
-        </NavLink>
-      </div>
+      <MainLinks isAdmin />
 
       <div>
-        <div className={sectionCls}>Calendars</div>
+        <div className="mb-1.5 flex items-center gap-1.5 pr-1 pl-2.5">
+          <span className="text-[11px] font-medium tracking-[0.08em] text-slate-500 uppercase">Calendars</span>
+          <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-medium text-slate-500 tabular-nums">{clients?.length || 0}</span>
+          <button
+            type="button"
+            onClick={switcher}
+            title={`Find a client (${isMac ? '⌘K' : 'Ctrl K'})`}
+            aria-label="Find a client"
+            className="ml-auto cursor-pointer rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          >
+            <Search className="h-3.5 w-3.5" />
+          </button>
+        </div>
         <div className="space-y-0.5">
           {workspace && <CalendarCard client={workspace} clients={clients} pins={pinStore} />}
-          <button onClick={switcher} className="mt-1 flex w-full cursor-pointer items-center gap-2.5 rounded-md border border-slate-200 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-800">
-            <Search className="h-4 w-4" /> <span className="flex-1 text-left">All clients</span>
-            <span className="text-[10px] text-slate-400">{clients.length}</span>
-            <kbd className="hidden rounded border border-slate-200 px-1 text-[10px] text-slate-500 lg:inline">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
-          </button>
         </div>
       </div>
 
@@ -281,20 +304,11 @@ function AdminNav({ user, clients, onNavigate }) {
 
 // Client login, outside the calendar: their overview and approvals, and the way into their calendar
 function ClientNav({ client, clientId }) {
-  const { data: waiting = [] } = usePosts({ clientId, status: 'FOR_APPROVAL', limit: 300 });
   if (!client?.slug) return null;
   return (
     <>
-      <div className="space-y-0.5">
-        <TodayLink slug={client.slug} />
-        <NavLink to="/overview" className={navCls}>
-          <LayoutDashboard className="h-4 w-4" /> Dashboard
-        </NavLink>
-        <NavLink to="/approvals" className={navCls}>
-          <CheckSquare className="h-4 w-4" /> <span className="flex-1">Approvals</span>
-          {waiting.length > 0 && <span className="rounded-full bg-brand-500 px-1.5 text-[11px] font-semibold text-white tabular-nums">{waiting.length}</span>}
-        </NavLink>
-      </div>
+      <MainLinks clientId={clientId} />
+      <TodayLink slug={client.slug} />
       <div>
         <div className={sectionCls}>My calendar</div>
         <NavLink to={`/c/${client.slug}?view=daily`} className={navCls}>
@@ -362,7 +376,7 @@ function Sidebar({ onNavigate }) {
   );
 }
 
-const VIEW_LABEL = { calendar: 'Calendar', sheet: 'Content plan', daily: "What's today", board: 'Board', ideas: 'Idea bank' };
+const VIEW_LABEL = { calendar: 'Calendar', sheet: 'Content plan', daily: "What's today", board: 'Status board', ideas: 'Idea bank' };
 const ADMIN_PAGES = {
   '/admin/today': ["What's today"],
   '/admin/approvals': ['Approvals'],

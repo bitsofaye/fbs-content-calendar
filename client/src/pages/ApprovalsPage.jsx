@@ -6,11 +6,11 @@ import { EmptyState, FullPageSpinner } from '../components/ui';
 import PostRow from '../components/PostRow';
 
 const TABS = [
-  { id: 'mine', label: 'My approvals', icon: UserCheck, key: 'myApprovals', empty: 'Nothing is waiting for you' },
-  { id: 'waiting', label: 'Waiting for approval', icon: Clock, key: 'awaitingApproval', empty: 'No posts are waiting for approval' },
+  { id: 'mine', label: 'Needs my approval', icon: UserCheck, key: 'myApprovals', empty: 'Nothing is waiting for you' },
+  { id: 'waiting', label: 'All waiting', icon: Clock, key: 'awaitingApproval', empty: 'No posts are waiting for approval' },
   { id: 'edits', label: 'Needs edits', icon: ListChecks, key: 'needsEdits', empty: 'No change requests' },
-  { id: 'next7', label: 'Next 7 days', icon: CalendarClock, key: 'upcoming', empty: 'Nothing is scheduled in the next 7 days' },
-  { id: 'requests', label: 'From clients', icon: Inbox, key: 'clientRequests', empty: 'No new posts from clients' },
+  { id: 'next7', label: 'Going out this week', icon: CalendarClock, key: 'upcoming', empty: 'Nothing is scheduled in the next 7 days' },
+  { id: 'requests', label: 'New from clients', icon: Inbox, key: 'clientRequests', empty: 'No new posts from clients' },
 ];
 
 // All the work queues across clients, one tab at a time.

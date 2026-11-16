@@ -161,7 +161,7 @@ export default function AdminOverview() {
                   <td className="px-2 py-2 text-center">
                     <button
                       className={`cursor-pointer rounded p-1 ${isPinned(r.id) ? 'text-brand-600' : 'text-slate-400 hover:text-slate-700'}`}
-                      title={isPinned(r.id) ? 'Unpin from sidebar' : `Pin to sidebar (opens ${CALENDAR_PAGES.find((p) => p.id === pageOf(r.id))?.label})`}
+                      title={isPinned(r.id) ? 'Favourite: listed first in the sidebar. Click to remove' : 'Add to favourites (listed first in the sidebar)'}
                       onClick={(e) => {
                         e.stopPropagation();
                         toggle(r.id);
@@ -177,13 +177,6 @@ export default function AdminOverview() {
                         <span className="block truncate font-medium text-slate-800">{r.name}</span>
                         {r.industry && <span className="block truncate text-xs text-slate-500">{r.industry}</span>}
                       </span>
-                      {/* choose the page the sidebar pin opens — before or after pinning */}
-                      <PinPagePicker
-                        client={r}
-                        pageOf={pageOf}
-                        setPage={setPage}
-                        className={`hidden shrink-0 sm:block ${isPinned(r.id) ? '' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'}`}
-                      />
                     </div>
                   </td>
                   <td className="px-3 py-2">
