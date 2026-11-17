@@ -67,20 +67,22 @@ export const useClientDashboard = (key, range) =>
 export const useOverview = (options = {}) =>
   useQuery({ queryKey: ['overview'], enabled: options.enabled !== false, queryFn: async () => (await api.get('/dashboard/overview')).data });
 
-// posts where I was recently made the approver or the person assigned
+// my bell: made approver / assigned, my posts approved / needing edits / rejected, and @mentions
+// each item: { id, type: 'assigned' | 'status' | 'mention', as, status, excerpt, at, by, post }
 export const useNotifications = () =>
-  useQuery({ queryKey: ['notifications'], refetchInterval: 60000, queryFn: async () => (await api.get('/dashboard/notifications')).data.assigned });
+  useQuery({ queryKey: ['notifications'], refetchInterval: 60000, queryFn: async () => (await api.get('/dashboard/notifications')).data.items });
 
 // clients in the Trash (admins); deleted for good after `days`
 export const useClientTrash = (options = {}) =>
   useQuery({ queryKey: ['clientTrash'], enabled: options.enabled !== false, queryFn: async () => (await api.get('/clients/trash')).data });
 
 // a client's shared Google Drive folders / files
-export const useDriveLinks = (clientId) =>
+// kind: 'DRIVE' (Drive links page), 'FILE' (File links page), or nothing for both (post window picker)
+export const useDriveLinks = (clientId, kind) =>
   useQuery({
-    queryKey: ['driveLinks', clientId],
+    queryKey: ['driveLinks', clientId, kind || 'all'],
     enabled: Boolean(clientId),
-    queryFn: async () => (await api.get('/drive-links', { params: { clientId } })).data.links,
+    queryFn: async () => (await api.get('/drive-links', { params: clean({ clientId, kind }) })).data.links,
   });
 
 // ---------- mutations ----------
@@ -102,7 +104,8 @@ function useApiMutation(fn, { success, invalidate = true } = {}) {
     mutationFn: fn,
     onSuccess: (data) => {
       if (invalidate) invalidatePosts();
-      if (success) toast.success(typeof success === 'function' ? success(data) : success);
+      const msg = typeof success === 'function' ? success(data) : success;
+      if (msg) toast.success(msg);
     },
     onError: (err) => toast.error(errorMessage(err)),
   });
@@ -130,7 +133,10 @@ export const useReviewPost = () =>
   useApiMutation(async ({ id, ...body }) => (await api.post(`/posts/${id}/review`, body)).data.post, {
     success: (p) => (p.status === 'APPROVED' ? 'Approved ✔' : p.status === 'TO_EDIT' ? 'Changes requested' : 'Rejected'),
   });
-export const useAddComment = () => useApiMutation(async ({ id, body }) => (await api.post(`/posts/${id}/comments`, { body })).data.comment);
+export const useAddComment = () =>
+  useApiMutation(async ({ id, body, mentions }) => (await api.post(`/posts/${id}/comments`, { body, mentions })).data, {
+    success: (d) => (d.mentioned ? `Comment sent · ${d.mentioned} ${d.mentioned === 1 ? 'person' : 'people'} notified` : undefined),
+  });
 export const useGenerateMonth = () =>
   useApiMutation(async (body) => (await api.post('/posts/generate-month', body)).data, {
     success: (d) => (d.created ? `Created ${d.created} empty slots` : 'Every pillar slot already has a post'),

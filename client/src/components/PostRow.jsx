@@ -2,12 +2,16 @@ import { Link } from 'react-router-dom';
 import { formatDate } from '../lib/dates';
 import { PillarTag, PlacementChips, StatusBadge } from './ui';
 
-// One post in a cross-client list (Approvals page). Clicking opens it in its client's calendar.
-export default function PostRow({ post, today }) {
+// One post in a cross-client list (Approvals page). Clicking opens it on the spot (onOpen),
+// or, without onOpen, in its client's calendar.
+export default function PostRow({ post, today, onOpen }) {
   const late = post.date && today && post.date < today && ['FOR_APPROVAL', 'TO_EDIT', 'REJECTED'].includes(post.status);
+  const cls = 'flex w-full cursor-pointer items-start gap-3 px-4 py-2.5 text-left hover:bg-slate-50';
+  const Tag = onOpen ? 'button' : Link;
+  const props = onOpen ? { type: 'button', onClick: () => onOpen(post) } : { to: `/c/${post.client.slug}?month=${post.date ? post.date.slice(0, 7) : ''}&post=${post.id}` };
   return (
     <li>
-      <Link to={`/c/${post.client.slug}?month=${post.date ? post.date.slice(0, 7) : ''}&post=${post.id}`} className="flex items-start gap-3 px-4 py-2.5 hover:bg-slate-50">
+      <Tag {...props} className={cls}>
         <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full" style={{ background: post.client.brandColor }} title={post.client.name} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-slate-800">{post.title}</p>
@@ -19,7 +23,7 @@ export default function PostRow({ post, today }) {
           </div>
         </div>
         <StatusBadge status={post.status} />
-      </Link>
+      </Tag>
     </li>
   );
 }

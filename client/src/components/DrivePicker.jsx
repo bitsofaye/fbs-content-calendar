@@ -44,7 +44,7 @@ export default function DrivePicker({ open, onClose, client, isAdmin, onAdd }) {
       open={open}
       onClose={close}
       wide
-      title={browsing ? browsing.title : 'Add from Drive'}
+      title={browsing ? browsing.title : 'Add from Drive & File links'}
       footer={
         browsing ? (
           <div className="flex w-full flex-wrap items-center gap-2">
@@ -86,8 +86,14 @@ export default function DrivePicker({ open, onClose, client, isAdmin, onAdd }) {
       ) : links.length ? (
         <div className="space-y-2">
           <p className="text-xs text-slate-500">Tick the links to add to this post, or <b>Browse</b> a folder to pick one file from it.</p>
+          {[['DRIVE', 'Drive links'], ['FILE', 'File links']].map(([k, heading]) => {
+            const group = links.filter((l) => (l.kind || 'DRIVE') === k);
+            if (!group.length) return null;
+            return (
+          <div key={k}>
+          <div className="mb-1 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">{heading}</div>
           <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
-            {links.map((l) => {
+            {group.map((l) => {
               const info = driveInfo(l.url);
               const Icon = ICON[info.kind];
               return (
@@ -107,11 +113,16 @@ export default function DrivePicker({ open, onClose, client, isAdmin, onAdd }) {
               );
             })}
           </ul>
+          </div>
+            );
+          })}
         </div>
       ) : (
         <p className="py-6 text-center text-sm text-slate-500">
-          No Drive links saved for {client.name} yet.{' '}
-          {isAdmin && <Link to={`/c/${client.slug}/drive`} className="font-medium text-brand-600 hover:underline" onClick={close}>Add one on the Drive links page</Link>}
+          No links saved for {client.name} yet.{' '}
+          <Link to={`/c/${client.slug}/drive`} className="font-medium text-brand-600 hover:underline" onClick={close}>Add one on the Drive links page</Link>
+          {' '}or{' '}
+          <Link to={`/c/${client.slug}/files`} className="font-medium text-brand-600 hover:underline" onClick={close}>File links page</Link>.
         </p>
       )}
     </Modal>

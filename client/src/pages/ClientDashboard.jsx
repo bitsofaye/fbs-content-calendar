@@ -109,7 +109,7 @@ export default function ClientDashboard() {
   };
   const closeDrawer = () => {
     setDraft(null);
-    update({ post: null });
+    update({ post: null, ptab: null });
   };
 
   const goMonth = (delta) => {
@@ -325,6 +325,7 @@ export default function ClientDashboard() {
           key={openPostId || 'new'}
           client={client}
           postId={openPostId}
+          initialTab={sp.get('ptab') || undefined}
           draft={draft}
           onClose={closeDrawer}
           onCreated={(p) => {

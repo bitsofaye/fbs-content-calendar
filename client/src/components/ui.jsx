@@ -52,8 +52,12 @@ export function platformStyle(hex) {
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
   const mix = (c) => Math.round(c * 0.6 + 255 * 0.4); // 60% color over white
   const [mr, mg, mb] = [mix(r), mix(g), mix(b)];
-  const lum = (0.2126 * mr + 0.7152 * mg + 0.0722 * mb) / 255;
-  return { background: `rgb(${mr} ${mg} ${mb})`, color: lum > 0.55 ? '#24161e' : '#ffffff' };
+  // pick dark or white text by real contrast (WCAG), so every chip stays readable
+  const lin = (v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const L = 0.2126 * lin(mr) + 0.7152 * lin(mg) + 0.0722 * lin(mb);
+  const vsWhite = 1.05 / (L + 0.05);
+  const vsDark = (L + 0.05) / (0.0105 + 0.05); // #24161e
+  return { background: `rgb(${mr} ${mg} ${mb})`, color: vsDark >= vsWhite ? '#24161e' : '#ffffff' };
 }
 
 // Full platform names, one per line, e.g. for the Content plan

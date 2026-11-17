@@ -1,13 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import {
-  ArrowLeft, BarChart3, Bell, CalendarDays, Inbox, CheckSquare, ChevronDown, ChevronRight, ChevronsUpDown, Columns3, FileSpreadsheet, FolderOpen, LayoutDashboard, Lightbulb, LogOut, Menu, Moon, Rows3, Search, Settings2, Sun, Table2, Tags,
+  ArrowLeft, AtSign, BarChart3, Bell, CalendarDays, Check, CheckCircle2, Inbox, CheckSquare, ChevronDown, RotateCcw, ChevronRight, ChevronsUpDown, Columns3, FileSpreadsheet, FolderOpen, LayoutDashboard, Lightbulb, Link2, LogOut, Menu, Moon, Rows3, Search, Settings2, Sun, Table2, Tags,
   UserCircle, Users, X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useClients, useNotifications, useOverview, usePosts } from '../api/hooks';
 import { openClientSwitcher, usePins } from '../lib/pins';
-import { useWorkspace } from '../lib/workspace';
+import { homeClient, useWorkspace } from '../lib/workspace';
 import ClientSwitcher from './ClientSwitcher';
 import { useBrandTheme } from '../lib/theme';
 import { useTheme } from '../lib/darkMode';
@@ -58,24 +58,125 @@ function CalendarLinks({ slug, showBoard, ideaAlerts = 0 }) {
       <NavLink to={`/c/${slug}/drive`} className={navCls}>
         <FolderOpen className="h-4 w-4" /> Drive links
       </NavLink>
+      <NavLink to={`/c/${slug}/files`} className={navCls}>
+        <Link2 className="h-4 w-4" /> File links
+      </NavLink>
     </div>
   );
 }
 
 // Inside a calendar: the client's name stays pinned on top and only that calendar's buttons show.
 // The one way back to the system menu is the Dashboard (here, or the Dashboard icon in the top bar).
-function CalendarNav({ slug, isAdmin, clients, user }) {
+// FBS team: the pinned calendar card opens a list of every calendar to jump to.
+// The same page stays open (e.g. Content plan of one client → Content plan of the next).
+function CalendarSwitch({ client, clients, user, onNavigate }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const ref = useRef(null);
+  const navigate = useNavigate();
+  const { pathname, search } = useLocation();
+  const { pins } = usePins(user?.id);
+  const home = homeClient(clients); // FBS's own calendar
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => !ref.current?.contains(e.target) && setOpen(false);
+    const esc = (e) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [open]);
+
+  const go = (c) => {
+    const sub = pathname.split('/').slice(3).join('/');
+    const view = new URLSearchParams(search).get('view');
+    setOpen(false);
+    setQ('');
+    onNavigate?.();
+    navigate(`/c/${c.slug}${sub ? `/${sub}` : ''}${!sub && view ? `?view=${view}` : ''}`);
+  };
+  const term = q.trim().toLowerCase();
+  const match = (c) => !term || c.name.toLowerCase().includes(term);
+  const top = [home, ...clients.filter((c) => pins.includes(c.id) && c.id !== home?.id)].filter(Boolean).filter(match);
+  const rest = clients.filter((c) => !top.some((t) => t.id === c.id)).filter(match);
+
+  const Row = ({ c }) => (
+    <li>
+      <button
+        type="button"
+        onClick={() => go(c)}
+        className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] ${c.id === client?.id ? 'bg-brand-50 font-medium text-brand-800' : 'text-slate-700 hover:bg-slate-100'}`}
+      >
+        <ClientDot color={c.brandColor} />
+        <span className="min-w-0 flex-1 leading-snug break-words">{c.name}</span>
+        {c.id === client?.id && <Check className="h-3.5 w-3.5 shrink-0" />}
+      </button>
+    </li>
+  );
+
+  return (
+    <div ref={ref} className="relative" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        title="Change calendar"
+        className="flex w-full cursor-pointer items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-left hover:border-brand-500/50 hover:bg-brand-50"
+        style={{ borderLeft: `4px solid ${client?.brandColor || '#cbd5e1'}` }}
+      >
+        <span className="min-w-0 flex-1">
+          <span className="eyebrow block">{client?.slug === 'fbs' ? 'FBS calendar' : 'Client calendar'}</span>
+          <span className="mt-1 block text-sm leading-snug font-semibold break-words text-slate-800">{client?.name || '…'}</span>
+          {client?.industry && <span className="block text-[11px] text-slate-500">{client.industry}</span>}
+        </span>
+        <ChevronsUpDown className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+      </button>
+      {open && (
+        <div className="absolute top-full right-0 left-0 z-50 mt-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lift">
+          <div className="border-b border-slate-100 p-2">
+            <input autoFocus className="input py-1.5 text-sm" placeholder="Find a calendar…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Find a calendar" />
+          </div>
+          <div className="max-h-[50vh] overflow-y-auto p-1.5">
+            {top.length > 0 && (
+              <>
+                <div className="px-2 pt-1 pb-0.5 text-[10px] font-medium tracking-[0.08em] text-slate-500 uppercase">FBS & pinned</div>
+                <ul>{top.map((c) => <Row key={c.id} c={c} />)}</ul>
+              </>
+            )}
+            {rest.length > 0 && (
+              <>
+                <div className="px-2 pt-2 pb-0.5 text-[10px] font-medium tracking-[0.08em] text-slate-500 uppercase">All calendars</div>
+                <ul>{rest.map((c) => <Row key={c.id} c={c} />)}</ul>
+              </>
+            )}
+            {!top.length && !rest.length && (
+              <p className="px-2 py-3 text-center text-xs text-slate-500">{clients.length ? `No calendar matches “${q}”.` : 'Loading calendars…'}</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CalendarNav({ slug, isAdmin, clients, user, onNavigate }) {
   const { data: overview } = useOverview({ enabled: isAdmin });
   const client = isAdmin ? clients.find((c) => c.slug === slug) : user?.client;
-  const name = client?.name || (isAdmin ? '…' : '');
   const ideaAlerts = isAdmin && client ? (overview?.ideasNeedingAttention || []).filter((p) => p.client.id === client.id).length : 0;
   return (
     <>
-      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3" style={{ borderLeft: `4px solid ${client?.brandColor || '#cbd5e1'}` }}>
-        <div className="eyebrow">{isAdmin ? (client?.slug === 'fbs' ? 'FBS calendar' : 'Client calendar') : 'My calendar'}</div>
-        <div className="mt-1 text-sm leading-snug font-semibold break-words text-slate-800">{name}</div>
-        {client?.industry && <div className="text-[11px] text-slate-500">{client.industry}</div>}
-      </div>
+      {isAdmin ? (
+        <CalendarSwitch client={client} clients={clients} user={user} onNavigate={onNavigate} />
+      ) : (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3" style={{ borderLeft: `4px solid ${client?.brandColor || '#cbd5e1'}` }}>
+          <div className="eyebrow">My calendar</div>
+          <div className="mt-1 text-sm leading-snug font-semibold break-words text-slate-800">{client?.name}</div>
+          {client?.industry && <div className="text-[11px] text-slate-500">{client.industry}</div>}
+        </div>
+      )}
       <CalendarLinks slug={slug} showBoard={isAdmin} ideaAlerts={ideaAlerts} />
       <Link
         to={isAdmin ? '/admin' : '/overview'}
@@ -205,7 +306,7 @@ function Sidebar({ onNavigate }) {
 
       <nav className="sidebar-scroll flex-1 space-y-4 overflow-y-auto px-3 py-3" onClick={onNavigate}>
         {calendarSlug ? (
-          <CalendarNav slug={calendarSlug} isAdmin={isAdmin} clients={clients} user={user} />
+          <CalendarNav slug={calendarSlug} isAdmin={isAdmin} clients={clients} user={user} onNavigate={onNavigate} />
         ) : isAdmin ? (
           <AdminNav user={user} clients={clients} onNavigate={onNavigate} />
         ) : (
@@ -260,7 +361,7 @@ function useTrail(clients, dashboardPath) {
     const [, , slug, sub] = pathname.split('/');
     const c = clients.find((x) => x.slug === slug);
     const view = new URLSearchParams(search).get('view') || 'calendar';
-    return [{ label: c?.name || 'Calendar', to: `/c/${slug}` }, { label: sub === 'results' ? 'Results' : sub === 'drive' ? 'Drive links' : VIEW_LABEL[view] || 'Calendar' }];
+    return [{ label: c?.name || 'Calendar', to: `/c/${slug}` }, { label: sub === 'results' ? 'Results' : sub === 'drive' ? 'Drive links' : sub === 'files' ? 'File links' : VIEW_LABEL[view] || 'Calendar' }];
   }
   return (ADMIN_PAGES[pathname] || []).map((label) => ({ label }));
 }
@@ -284,7 +385,7 @@ function NotificationBell() {
   const { data: overview } = useOverview({ enabled: isAdmin });
   const { data: waitingMine = [] } = usePosts({ clientId: user?.clientId, status: 'FOR_APPROVAL', limit: 100 }, { enabled: !isAdmin });
   const { data: assigned = [] } = useNotifications();
-  // "assigned to you" items count as new until the bell is opened
+  // personal notices (assigned, approved, needs edits, mentions) count as new until the bell is opened
   const seenKey = `cc_seen_assigned_${user?.id}`;
   const [seenAt, setSeenAt] = useState(() => {
     try {
@@ -293,7 +394,6 @@ function NotificationBell() {
       return '';
     }
   });
-  const unseenAssigned = assigned.filter((a) => a.at > seenAt).length;
   useEffect(() => {
     if (!open || !assigned.length) return;
     const latest = assigned[0].at;
@@ -315,27 +415,38 @@ function NotificationBell() {
   }, [open]);
 
   const postLink = (p) => `/c/${p.client.slug}?post=${p.id}${p.date ? `&month=${p.date.slice(0, 7)}` : ''}`;
-  const assignedGroup = {
-    title: 'Assigned to you',
-    icon: UserCircle,
-    counted: unseenAssigned,
-    items: assigned.map((a) => ({
-      ...a.post,
-      id: a.id,
-      postId: a.post.id,
-      isNew: a.at > seenAt,
-      sub: `${a.as === 'approver' ? 'You are the approver' : 'Assigned to you'}${a.by ? ` by ${a.by}` : ''}`,
-    })),
-    link: (p) => postLink({ ...p, id: p.postId }),
+  // one group of personal notices (newest first), e.g. everything of type "mention"
+  const noticeGroup = (title, icon, keep, sub, tab) => {
+    const list = assigned.filter(keep);
+    return {
+      title,
+      icon,
+      counted: list.filter((a) => a.at > seenAt).length,
+      items: list.map((a) => ({ ...a.post, id: a.id, postId: a.post.id, isNew: a.at > seenAt, sub: sub(a), tone: a.status })),
+      link: (p) => postLink({ ...p, id: p.postId }) + (tab ? `&ptab=${tab}` : ''),
+    };
   };
+  const by = (a) => (a.by ? ` by ${a.by}` : '');
+  const personal = [
+    noticeGroup('Mentioned you', AtSign, (a) => a.type === 'mention', (a) => `${a.by || 'Someone'} mentioned you${a.excerpt ? `: “${a.excerpt}”` : ''}`, 'discussion'),
+    noticeGroup(
+      'Needs edits',
+      RotateCcw,
+      (a) => a.type === 'status' && a.status !== 'APPROVED',
+      (a) => (a.status === 'REJECTED' ? `Rejected${by(a)}` : `Changes requested${by(a)}`),
+      'discussion',
+    ),
+    noticeGroup('Approved', CheckCircle2, (a) => a.type === 'status' && a.status === 'APPROVED', (a) => `Approved${by(a)}`),
+    noticeGroup('Assigned to you', UserCircle, (a) => a.type === 'assigned', (a) => `${a.as === 'approver' ? 'You are the approver' : 'Assigned to you'}${by(a)}`),
+  ];
   const groups = isAdmin
     ? [
-        assignedGroup,
+        ...personal,
         { title: 'Ideas that need attention', icon: Lightbulb, items: overview?.ideasNeedingAttention || [], link: (p) => `/c/${p.client.slug}?view=ideas` },
         { title: 'New posts from clients', icon: Inbox, items: (overview?.clientRequests || []).filter((p) => !p.needsAttention), link: (p) => `/c/${p.client.slug}?post=${p.id}${p.date ? `&month=${p.date.slice(0, 7)}` : ''}` },
         { title: 'Waiting for your approval', icon: CheckSquare, items: overview?.myApprovals || [], link: (p) => `/c/${p.client.slug}?post=${p.id}${p.date ? `&month=${p.date.slice(0, 7)}` : ''}` },
       ]
-    : [assignedGroup, { title: 'Waiting for your approval', icon: CheckSquare, items: waitingMine, link: () => '/approvals' }];
+    : [...personal, { title: 'Waiting for your approval', icon: CheckSquare, items: waitingMine, link: () => '/approvals' }];
   const total = groups.reduce((n, g) => n + (g.counted ?? g.items.length), 0);
   const anything = groups.some((g) => g.items.length);
 
@@ -365,7 +476,7 @@ function NotificationBell() {
                           {p.isNew && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500" title="New" />}
                           <span className="min-w-0">{p.title}</span>
                         </span>
-                        <span className="block text-xs text-slate-500">
+                        <span className={`block text-xs ${p.tone === 'APPROVED' ? 'text-emerald-700' : p.tone ? 'text-orange-700' : 'text-slate-500'}`}>
                           {p.client?.name ? `${p.client.name} · ` : ''}
                           {p.sub || (p.createdBy?.name ? `by ${p.createdBy.name}` : p.date ? p.date : 'No date')}
                         </span>

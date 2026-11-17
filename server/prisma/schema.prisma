@@ -81,6 +81,7 @@ model User {
   created    Post[]        @relation("PostCreator")
   comments   Comment[]
   activities ActivityLog[]
+  links      DriveLink[]
 }
 
 model Client {
@@ -102,18 +103,23 @@ model Client {
   driveLinks DriveLink[]
 }
 
-// A shared Google Drive folder / file of a client (pubmats, brand kit, photos…)
+// A shared link of a client: a Google Drive folder / file (kind DRIVE), or any useful
+// file, website, reference or online document (kind FILE). FBS and the client's own users can add them.
 model DriveLink {
-  id        String   @id @default(cuid())
-  clientId  String
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  title     String
-  url       String
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  kind        String   @default("DRIVE") // DRIVE | FILE
+  title       String
+  url         String
+  sortOrder   Int      @default(0)
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([clientId])
+  @@index([clientId, kind])
 }
 
 // A content pillar / category (the colored "KEY:" legend of the old sheet)

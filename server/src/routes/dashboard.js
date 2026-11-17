@@ -82,12 +82,13 @@ router.get('/overview', requireAdmin, async (req, res) => {
   });
 });
 
-// Anyone: posts where you were recently made the approver or the assignee (newest first, last 30 days)
+// Anyone, newest first, last 30 days: posts where you were made the approver or the assignee,
+// posts of yours that were approved / need edits / were rejected, and comments that @mention you
 router.get('/notifications', async (req, res) => {
   const since = new Date(Date.now() - 30 * 86400000);
   const logs = await prisma.activityLog.findMany({
     where: {
-      action: 'ASSIGNED',
+      action: { in: ['ASSIGNED', 'NOTIFY', 'MENTIONED'] },
       createdAt: { gte: since },
       meta: { path: ['userId'], equals: req.user.id },
       post: { archivedAt: null, client: { deletedAt: null }, ...(req.user.role === 'CLIENT' ? { clientId: req.user.clientId } : {}) },
@@ -97,12 +98,16 @@ router.get('/notifications', async (req, res) => {
       post: { select: { id: true, title: true, date: true, status: true, client: clientMini } },
     },
     orderBy: { createdAt: 'desc' },
-    take: 50,
+    take: 80,
   });
+  const TYPE = { ASSIGNED: 'assigned', NOTIFY: 'status', MENTIONED: 'mention' };
   res.json({
-    assigned: logs.map((l) => ({
+    items: logs.map((l) => ({
       id: l.id,
+      type: TYPE[l.action],
       as: l.meta?.as,
+      status: l.meta?.status,
+      excerpt: l.meta?.excerpt,
       at: l.createdAt,
       by: l.user?.name || null,
       post: { ...l.post, date: l.post.date ? l.post.date.toISOString().slice(0, 10) : null },

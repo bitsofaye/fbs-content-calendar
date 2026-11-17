@@ -35,9 +35,9 @@ function WeekStrip({ day, setDay, counts }) {
               }`}
               aria-label={`${formatDate(d)}, ${n} post${n === 1 ? '' : 's'}`}
             >
-              <span className={`text-[11px] font-medium uppercase ${active ? 'text-white/80' : 'text-slate-500'}`}>{DAY_SHORT[weekday(d)]}</span>
+              <span className={`text-[11px] font-medium uppercase ${active ? 'text-white/95' : 'text-slate-500'}`}>{DAY_SHORT[weekday(d)]}</span>
               <span className="text-lg leading-tight font-semibold">{Number(d.slice(8))}</span>
-              <span className={`mt-0.5 text-[11px] ${active ? 'text-white/85' : n ? 'text-brand-600' : 'text-slate-400'}`}>{n ? <>{n}<span className="hidden sm:inline"> post{n === 1 ? '' : 's'}</span></> : '—'}</span>
+              <span className={`mt-0.5 text-[11px] ${active ? 'text-white' : n ? 'text-brand-600' : 'text-slate-400'}`}>{n ? <>{n}<span className="hidden sm:inline"> post{n === 1 ? '' : 's'}</span></> : '—'}</span>
             </button>
           );
         })}

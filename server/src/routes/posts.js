@@ -7,9 +7,16 @@ import { postListInclude, serializePost, serializePosts } from '../lib/serialize
 import { dateStr, id, PLACEMENTS, postCreate, postListQuery, postUpdate, STATUSES } from '../lib/schemas.js';
 import { assertClientAccess, requireAdmin, resolveClientId } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { assignmentLogs, NEEDS_COMMENT, statusBlock } from '../lib/workflow.js';
+import { assignmentLogs, NEEDS_COMMENT, NOTICE_ACTIONS, NOTIFY_STATUSES, statusBlock, statusNoticeLogs } from '../lib/workflow.js';
 
 const router = Router();
+
+/** Bell notices for an Approved / Needs edit / Rejected change (looks up who sent the post for approval). */
+async function statusNotices(before, to, actorId) {
+  if (!to || to === before.status || !NOTIFY_STATUSES.includes(to)) return [];
+  const sent = await prisma.activityLog.findFirst({ where: { postId: before.id, action: 'SUBMITTED' }, orderBy: { createdAt: 'desc' }, select: { userId: true } });
+  return statusNoticeLogs(before, to, before.id, actorId, sent?.userId);
+}
 
 /** Status changes made by editing (drawer, content plan, board) follow the approver / assignee rules. */
 function assertStatusChange(user, before, data) {
@@ -144,7 +151,7 @@ router.get('/:id', async (req, res) => {
     include: {
       ...fullInclude,
       commentList: { include: { user: { select: { id: true, name: true, role: true } } }, orderBy: { createdAt: 'asc' } },
-      activities: { include: { user: { select: { id: true, name: true } } }, orderBy: { createdAt: 'desc' }, take: 100 },
+      activities: { where: { action: { notIn: NOTICE_ACTIONS } }, include: { user: { select: { id: true, name: true } } }, orderBy: { createdAt: 'desc' }, take: 100 },
     },
   });
   res.json({ post: serializePost(post) });
@@ -181,7 +188,11 @@ router.patch('/:id', validate(postUpdate), async (req, res) => {
   if (data.approverId) data.approverName = null;
   // once FBS starts working on a flagged idea, the "needs attention" flag has done its job
   if (data.status && data.status !== "IDEA" && before.needsAttention && !("needsAttention" in data)) data.needsAttention = false;
-  const logs = [...activityFor(before, data, req.user.id), ...assignmentLogs(before, data, before.id, req.user.id)];
+  const logs = [
+    ...activityFor(before, data, req.user.id),
+    ...assignmentLogs(before, data, before.id, req.user.id),
+    ...(await statusNotices({ ...before, ...data, status: before.status }, data.status, req.user.id)),
+  ];
   const [post] = await prisma.$transaction([
     prisma.post.update({ where: { id: before.id }, data, include: postListInclude }),
     ...(logs.length ? [prisma.activityLog.createMany({ data: logs })] : []),
@@ -209,7 +220,11 @@ router.post('/bulk', requireAdmin, validate(bulkSchema), async (req, res) => {
     if (data.approverId) data.approverName = null;
     if (data.status && data.status !== "IDEA" && before.needsAttention && !("needsAttention" in data)) data.needsAttention = false;
     ops.push(prisma.post.update({ where: { id: u.id }, data, include: postListInclude }));
-    const logs = [...activityFor(before, data, req.user.id), ...assignmentLogs(before, data, before.id, req.user.id)];
+    const logs = [
+      ...activityFor(before, data, req.user.id),
+      ...assignmentLogs(before, data, before.id, req.user.id),
+      ...(await statusNotices({ ...before, ...data, status: before.status }, data.status, req.user.id)),
+    ];
     if (logs.length) ops.push(prisma.activityLog.createMany({ data: logs }));
   }
   const results = await prisma.$transaction(ops);
@@ -351,10 +366,12 @@ router.post('/:id/review', validate(reviewSchema), async (req, res) => {
   const r = REVIEW[action];
   const block = statusBlock(req.user, before, r.status);
   if (block) throw forbidden(block);
+  const notices = await statusNotices(before, r.status, req.user.id);
   const [post] = await prisma.$transaction([
     prisma.post.update({ where: { id: before.id }, data: { status: r.status }, include: postListInclude }),
     prisma.activityLog.create({ data: { postId: before.id, userId: req.user.id, action: r.action, meta: { from: before.status, to: r.status } } }),
     ...(comment ? [prisma.comment.create({ data: { postId: before.id, userId: req.user.id, body: comment } })] : []),
+    ...(notices.length ? [prisma.activityLog.createMany({ data: notices })] : []),
   ]);
   res.json({ post: serializePost(post) });
 });
@@ -371,13 +388,24 @@ router.get('/:id/comments', async (req, res) => {
   res.json({ comments });
 });
 
-router.post('/:id/comments', validate(z.object({ body: z.string().trim().min(1).max(5000) })), async (req, res) => {
+const commentSchema = z.object({ body: z.string().trim().min(1).max(5000), mentions: z.array(id).max(30).optional() });
+
+// A comment can @mention people who can see the post (FBS team, and this client's own users); each gets a bell notice
+router.post('/:id/comments', validate(commentSchema), async (req, res) => {
   const post = await loadPost(req.params.id, req.user);
-  const comment = await prisma.comment.create({
-    data: { postId: post.id, userId: req.user.id, body: req.valid.body.body },
-    include: { user: { select: { id: true, name: true, role: true } } },
-  });
-  res.status(201).json({ comment });
+  const { body, mentions = [] } = req.valid.body;
+  const wanted = [...new Set(mentions)].filter((u) => u !== req.user.id);
+  const people = wanted.length
+    ? await prisma.user.findMany({ where: { id: { in: wanted }, active: true, OR: [{ role: 'ADMIN' }, { clientId: post.clientId }] }, select: { id: true } })
+    : [];
+  const excerpt = body.length > 140 ? `${body.slice(0, 137)}…` : body;
+  const [comment] = await prisma.$transaction([
+    prisma.comment.create({ data: { postId: post.id, userId: req.user.id, body }, include: { user: { select: { id: true, name: true, role: true } } } }),
+    ...(people.length
+      ? [prisma.activityLog.createMany({ data: people.map((u) => ({ postId: post.id, userId: req.user.id, action: 'MENTIONED', meta: { userId: u.id, excerpt } })) })]
+      : []),
+  ]);
+  res.status(201).json({ comment, mentioned: people.length });
 });
 
 export default router;

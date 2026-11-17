@@ -22,6 +22,22 @@ export function statusBlock(user, post, to) {
   return null;
 }
 
+// statuses that notify the people working on a post
+export const NOTIFY_STATUSES = ['APPROVED', 'TO_EDIT', 'REJECTED'];
+// activity rows that only feed the bell (not shown in a post's History)
+export const NOTICE_ACTIONS = ['NOTIFY', 'MENTIONED'];
+
+/**
+ * Activity rows that tell the people working on a post that it was approved / needs edits / was rejected:
+ * the person assigned, whoever created it, and whoever sent it for approval (never the one who made the change).
+ */
+export function statusNoticeLogs(before, to, postId, actorId, submitterId) {
+  if (!NOTIFY_STATUSES.includes(to) || to === before.status) return [];
+  const ids = new Set([before.assigneeId, before.createdById, submitterId].filter(Boolean));
+  ids.delete(actorId);
+  return [...ids].map((userId) => ({ postId, userId: actorId, action: 'NOTIFY', meta: { userId, status: to } }));
+}
+
 /** Activity rows that notify people newly set as approver / assignee (never yourself). */
 export function assignmentLogs(before, data, postId, actorId) {
   const logs = [];

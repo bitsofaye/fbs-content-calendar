@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Check, Copy, ExternalLink, FolderOpen, MessageSquare, RotateCcw, Send, Trash2, X, XCircle } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AtSign, Check, Copy, ExternalLink, FolderOpen, MessageSquare, RotateCcw, Send, Trash2, X, XCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
   useAddComment, useCreatePost, useDeletePost, useDuplicatePost, usePost, useSubmitPost, useUpdatePost, useUserOptions,
@@ -97,15 +97,138 @@ function Links({ links }) {
   );
 }
 
-function Discussion({ post }) {
+// A comment's text with every "@Name" of a known person highlighted
+function CommentBody({ body, people }) {
+  const names = people.map((p) => p.name).filter(Boolean).sort((a, b) => b.length - a.length);
+  if (!names.length) return body;
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = body.split(new RegExp(`(@(?:${names.map(esc).join('|')}))`, 'g'));
+  return parts.map((part, i) =>
+    i % 2 ? <span key={i} className="rounded bg-brand-100 px-0.5 font-medium text-brand-800">{part}</span> : part,
+  );
+}
+
+// Comment box: typing "@" opens a list of people to mention (FBS team and this client's users)
+function CommentBox({ post, people, me }) {
   const [body, setBody] = useState('');
+  const [picked, setPicked] = useState([]); // people mentioned so far
+  const [query, setQuery] = useState(null); // text typed after "@", or null when the list is closed
+  const [active, setActive] = useState(0);
+  const ref = useRef(null);
   const add = useAddComment();
-  const send = async (e) => {
-    e.preventDefault();
-    if (!body.trim()) return;
-    await add.mutateAsync({ id: post.id, body });
-    setBody('');
+  const others = people.filter((p) => p.id !== me);
+  const matches = query === null ? [] : others.filter((p) => p.name.toLowerCase().includes(query.toLowerCase())).slice(0, 8);
+
+  // the "@word" just before the cursor, if any
+  const findQuery = (text, caret) => {
+    const m = /(^|\s)@([^\s@]{0,30})$/.exec(text.slice(0, caret));
+    return m ? m[2] : null;
   };
+  const onChange = (e) => {
+    setBody(e.target.value);
+    setQuery(findQuery(e.target.value, e.target.selectionStart));
+    setActive(0);
+  };
+  const choose = (person) => {
+    const el = ref.current;
+    const caret = el?.selectionStart ?? body.length;
+    const before = body.slice(0, caret).replace(/@([^\s@]{0,30})$/, `@${person.name} `);
+    const next = before + body.slice(caret);
+    setBody(next);
+    setPicked((list) => (list.some((p) => p.id === person.id) ? list : [...list, person]));
+    setQuery(null);
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(before.length, before.length);
+    });
+  };
+  const startMention = () => {
+    const sep = body && !/\s$/.test(body) ? ' ' : '';
+    const next = `${body}${sep}@`;
+    setBody(next);
+    setQuery('');
+    requestAnimationFrame(() => {
+      ref.current?.focus();
+      ref.current?.setSelectionRange(next.length, next.length);
+    });
+  };
+  const send = async (e) => {
+    e?.preventDefault();
+    if (!body.trim()) return;
+    // only people whose "@Name" is still in the text
+    const mentions = picked.filter((p) => body.includes(`@${p.name}`)).map((p) => p.id);
+    await add.mutateAsync({ id: post.id, body, mentions });
+    setBody('');
+    setPicked([]);
+    setQuery(null);
+  };
+  const onKeyDown = (e) => {
+    if (matches.length) {
+      if (e.key === 'ArrowDown') return e.preventDefault(), setActive((a) => (a + 1) % matches.length);
+      if (e.key === 'ArrowUp') return e.preventDefault(), setActive((a) => (a - 1 + matches.length) % matches.length);
+      if (e.key === 'Enter' || e.key === 'Tab') return e.preventDefault(), choose(matches[active]);
+    }
+    if (e.key === 'Escape' && query !== null) {
+      e.stopPropagation();
+      setQuery(null);
+    }
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(e);
+  };
+
+  return (
+    <form onSubmit={send} className="relative mt-3">
+      {matches.length > 0 && (
+        <ul className="absolute bottom-full left-0 z-10 mb-1 max-h-56 w-64 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lift" role="listbox">
+          <li className="px-3 pt-1 pb-1.5 text-[11px] text-slate-500">Mention someone</li>
+          {matches.map((p, i) => (
+            <li key={p.id}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={i === active}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => choose(p)}
+                className={`flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-sm ${i === active ? 'bg-brand-50 text-brand-800' : 'text-slate-700 hover:bg-slate-50'}`}
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-[11px] font-semibold text-brand-800">{p.name.slice(0, 1).toUpperCase()}</span>
+                <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                <span className="text-[10px] text-slate-500">{p.role === 'CLIENT' ? 'client' : 'FBS'}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex gap-2">
+        <textarea
+          ref={ref}
+          className="input min-h-[38px] flex-1"
+          rows={2}
+          placeholder="Write a comment… type @ to mention someone"
+          value={body}
+          onChange={onChange}
+          onKeyDown={onKeyDown}
+          onClick={(e) => setQuery(findQuery(body, e.target.selectionStart))}
+          onBlur={() => setTimeout(() => setQuery(null), 150)}
+        />
+        <div className="flex flex-col justify-end gap-1">
+          <button type="button" className="btn-secondary px-2.5" onClick={startMention} title="Mention someone" aria-label="Mention someone">
+            <AtSign className="h-4 w-4" />
+          </button>
+          <button className="btn-primary px-2.5" disabled={add.isPending || !body.trim()} title="Send (Ctrl + Enter)" aria-label="Send comment">
+            <Send className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+      {picked.some((p) => body.includes(`@${p.name}`)) && (
+        <p className="mt-1 text-[11px] text-slate-500">
+          Will notify: {picked.filter((p) => body.includes(`@${p.name}`)).map((p) => p.name).join(', ')}
+        </p>
+      )}
+    </form>
+  );
+}
+
+function Discussion({ post, people, me }) {
   const ACTION_LABEL = {
     CREATED: 'created the post', UPDATED: 'edited', STATUS_CHANGED: 'changed status', RESCHEDULED: 'rescheduled', SUBMITTED: 'sent for approval',
     APPROVED: 'approved', CHANGES_REQUESTED: 'requested changes', REJECTED: 'rejected', IMPORTED: 'imported',
@@ -124,19 +247,14 @@ function Discussion({ post }) {
                   </span>
                   <span>{formatDateTime(c.createdAt)}</span>
                 </div>
-                <p className="whitespace-pre-wrap text-slate-700">{c.body}</p>
+                <p className="whitespace-pre-wrap text-slate-700"><CommentBody body={c.body} people={people} /></p>
               </div>
             ))
           ) : (
             <p className="text-sm text-slate-500">No comments yet.</p>
           )}
         </div>
-        <form onSubmit={send} className="mt-3 flex gap-2">
-          <textarea className="input min-h-[38px] flex-1" rows={2} placeholder="Write a comment…" value={body} onChange={(e) => setBody(e.target.value)} />
-          <button className="btn-primary self-end" disabled={add.isPending || !body.trim()}>
-            <Send className="h-4 w-4" />
-          </button>
-        </form>
+        <CommentBox post={post} people={people} me={me} />
       </div>
       <div>
         <h3 className="mb-2 text-sm font-medium text-slate-700">History</h3>
@@ -177,7 +295,7 @@ function ReviewBar({ post, change }) {
   );
 }
 
-export default function PostDrawer({ client, postId, draft, onClose, onCreated }) {
+export default function PostDrawer({ client, postId, draft, onClose, onCreated, initialTab }) {
   const { user, isAdmin } = useAuth();
   const isNew = !postId;
   const { data: post, isLoading } = usePost(postId);
@@ -186,7 +304,7 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated }
   // what the form looked like when it was opened / last saved — used to warn about unsaved edits
   const [snapshot, setSnapshot] = useState(() => JSON.stringify({ ...EMPTY, ...(draft || {}) }));
   // clients mostly care about the content (caption + pubmat), so they land on that tab
-  const [tab, setTab] = useState(isAdmin || !postId ? 'details' : 'content');
+  const [tab, setTab] = useState(initialTab && postId ? initialTab : isAdmin || !postId ? 'details' : 'content');
   const create = useCreatePost();
   const update = useUpdatePost();
   const del = useDeletePost();
@@ -568,7 +686,7 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated }
                 </div>
               )}
 
-              {tab === 'discussion' && post && <Discussion post={post} />}
+              {tab === 'discussion' && post && <Discussion post={post} people={people} me={user.id} />}
             </>
           )}
         </div>

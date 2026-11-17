@@ -1,9 +1,17 @@
 import { useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { CalendarClock, Clock, Inbox, ListChecks, UserCheck } from 'lucide-react';
-import { useOverview } from '../api/hooks';
+import { useClient, useOverview } from '../api/hooks';
 import { EmptyState, FullPageSpinner } from '../components/ui';
 import PostRow from '../components/PostRow';
+import PostDrawer from '../components/PostDrawer';
+
+// The post window over the Approvals page (loads the post's client first)
+function OpenPost({ slug, postId, onClose }) {
+  const { data: client } = useClient(slug);
+  if (!client) return null;
+  return <PostDrawer key={postId} client={client} postId={postId} onClose={onClose} />;
+}
 
 const TABS = [
   { id: 'mine', label: 'My approvals', icon: UserCheck, key: 'myApprovals', empty: 'Nothing is waiting for you' },
@@ -19,6 +27,9 @@ export default function ApprovalsPage() {
   const [sp, setSp] = useSearchParams();
   const tab = TABS.find((t) => t.id === sp.get('tab')) || TABS[0];
   const clientId = sp.get('client') || '';
+  // the open post is kept in the address (?open=id&in=slug) next to the tab, so closing it lands on the same tab
+  const openId = sp.get('open');
+  const openSlug = sp.get('in');
 
   const set = (patch) =>
     setSp((prev) => {
@@ -65,12 +76,20 @@ export default function ApprovalsPage() {
 
       <section className="card overflow-hidden">
         {posts.length ? (
-          <ul className="divide-y divide-slate-100">{posts.map((p) => <PostRow key={p.id} post={p} today={data.today} />)}</ul>
+          <ul className="divide-y divide-slate-100">
+            {posts.map((p) => <PostRow key={p.id} post={p} today={data.today} onOpen={(x) => set({ open: x.id, in: x.client.slug })} />)}
+          </ul>
         ) : (
           <EmptyState icon={Inbox} title={tab.empty} />
         )}
       </section>
-      <p className="text-xs text-slate-500">Click a post to open it in its client’s calendar.</p>
+      <p className="text-xs text-slate-500">
+        Click a post to open it here; closing it brings you back to this tab.
+        {openId && openSlug && (
+          <> Want the whole calendar? <Link className="text-brand-700 underline" to={`/c/${openSlug}?post=${openId}`}>Open it in its calendar</Link>.</>
+        )}
+      </p>
+      {openId && openSlug && <OpenPost slug={openSlug} postId={openId} onClose={() => set({ open: null, in: null })} />}
     </div>
   );
 }
