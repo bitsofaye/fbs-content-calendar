@@ -3,14 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Star } from 'lucide-react';
 import { useClients } from '../api/hooks';
 import { useAuth } from '../context/AuthContext';
-import { usePins } from '../lib/pins';
+import { CALENDAR_PAGES, calendarPagePath, usePins } from '../lib/pins';
+import { ClientMark } from './ui';
+import PinPagePicker from './PinPagePicker';
 
 // "Jump to client": search every client by name or industry, pin favourites.
 // Opens with Ctrl+K (⌘K on Mac), the sidebar's "All clients" button, or the client name in a dashboard header.
 export default function ClientSwitcher({ open, onClose }) {
   const { user } = useAuth();
   const { data: clients = [] } = useClients();
-  const { isPinned, toggle } = usePins(user?.id);
+  const { isPinned, toggle, pageOf, setPage } = usePins(user?.id);
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
   const navigate = useNavigate();
@@ -36,7 +38,7 @@ export default function ClientSwitcher({ open, onClose }) {
   const go = (c) => {
     if (!c) return;
     onClose();
-    navigate(`/c/${c.slug}`);
+    navigate(calendarPagePath(c.slug, pageOf(c.id)));
   };
 
   const onKey = (e) => {
@@ -76,14 +78,16 @@ export default function ClientSwitcher({ open, onClose }) {
                 onMouseEnter={() => setActive(i)}
                 onClick={() => go(c)}
               >
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c.brandColor }} />
+                <ClientMark client={c} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-slate-800">{c.name}</span>
                   {c.industry && <span className="block truncate text-xs text-slate-500">{c.industry}</span>}
                 </span>
+                {/* which page the sidebar pin opens — can be picked before pinning */}
+                {(isPinned(c.id) || i === active) && <PinPagePicker client={c} pageOf={pageOf} setPage={setPage} />}
                 <button
-                  className={`cursor-pointer rounded p-1 ${isPinned(c.id) ? 'text-brand-600' : 'text-slate-300 hover:text-slate-700'}`}
-                  title={isPinned(c.id) ? 'Unpin from sidebar' : 'Pin to sidebar'}
+                  className={`cursor-pointer rounded p-1 ${isPinned(c.id) ? 'text-brand-600' : 'text-slate-400 hover:text-slate-700'}`}
+                  title={isPinned(c.id) ? 'Unpin from sidebar' : `Pin to sidebar (opens ${CALENDAR_PAGES.find((p) => p.id === pageOf(c.id))?.label})`}
                   onClick={(e) => {
                     e.stopPropagation();
                     toggle(c.id);
@@ -98,7 +102,7 @@ export default function ClientSwitcher({ open, onClose }) {
         </ul>
         <div className="flex items-center justify-between border-t border-slate-200 px-4 py-2 text-[11px] text-slate-500">
           <span>↑ ↓ to move · Enter to open</span>
-          <span>☆ pins a client to the sidebar</span>
+          <span>Pick a page, then ☆ pins it to the sidebar</span>
         </div>
       </div>
     </div>

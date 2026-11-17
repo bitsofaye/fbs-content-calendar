@@ -27,6 +27,15 @@ export const usePosts = (params, options = {}) =>
     queryFn: async () => (await api.get('/posts', { params: clean(params) })).data.posts,
   });
 
+// Posts across every client (FBS team only), e.g. everything going out on one day
+export const useAllPosts = (params, options = {}) =>
+  useQuery({
+    queryKey: ['posts', 'all', clean(params)],
+    enabled: options.enabled !== false,
+    placeholderData: keepPreviousData,
+    queryFn: async () => (await api.get('/posts', { params: clean(params) })).data.posts,
+  });
+
 export const usePost = (id) =>
   useQuery({
     queryKey: ['post', id],
@@ -77,6 +86,17 @@ export const useClientTrash = (options = {}) =>
   useQuery({ queryKey: ['clientTrash'], enabled: options.enabled !== false, queryFn: async () => (await api.get('/clients/trash')).data });
 
 // a client's shared Google Drive folders / files
+// The files inside a shared Drive folder (Google Drive API on the server; configured:false when it has no key)
+export const useDriveFolder = (clientId, folderId) =>
+  useQuery({
+    queryKey: ['driveFolder', clientId, folderId],
+    enabled: Boolean(clientId && folderId),
+    staleTime: 60 * 1000,
+    retry: false,
+    queryFn: async () => (await api.get('/drive-links/browse', { params: { clientId, folderId } })).data,
+  });
+
+// a client's shared links
 // kind: 'DRIVE' (Drive links page), 'FILE' (File links page), or nothing for both (post window picker)
 export const useDriveLinks = (clientId, kind) =>
   useQuery({
@@ -140,6 +160,19 @@ export const useAddComment = () =>
 export const useGenerateMonth = () =>
   useApiMutation(async (body) => (await api.post('/posts/generate-month', body)).data, {
     success: (d) => (d.created ? `Created ${d.created} empty slots` : 'Every pillar slot already has a post'),
+  });
+
+// AI drafts: generating can take a few minutes for a whole month, so allow up to 10
+export const useGenerateContent = () =>
+  useApiMutation(async (body) => (await api.post('/posts/generate-content', body, { timeout: 10 * 60 * 1000 })).data, { invalidate: false });
+// is one-click (API) generation set up on the server? If not, the copy-paste way through claude.ai is used
+export const useGenerateStatus = (enabled = true) =>
+  useQuery({ queryKey: ['generateStatus'], enabled, staleTime: 5 * 60 * 1000, queryFn: async () => (await api.get('/posts/generate-content/status')).data });
+export const useContentRequest = () => useApiMutation(async (body) => (await api.post('/posts/generate-content/request', body)).data, { invalidate: false });
+export const useReadClaudeReply = () => useApiMutation(async (body) => (await api.post('/posts/generate-content/read', body)).data, { invalidate: false });
+export const useSaveGeneratedContent = () =>
+  useApiMutation(async (body) => (await api.post('/posts/generate-content/save', body)).data, {
+    success: (d) => `Added ${d.created} post${d.created === 1 ? '' : 's'} to the calendar`,
   });
 
 // Generic admin CRUD helper for clients / pillars / themes / users

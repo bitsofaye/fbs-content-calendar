@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import { FullPageSpinner } from './components/ui';
 import Login from './pages/Login';
 import AdminOverview from './pages/AdminOverview';
+import AdminToday from './pages/AdminToday';
 import ApprovalsPage from './pages/ApprovalsPage';
 import ClientOverview from './pages/client/ClientOverview';
 import ClientApprovals from './pages/client/ClientApprovals';
@@ -72,6 +73,7 @@ export default function App() {
         <Route path="results" element={<ClientOnly><ClientResults /></ClientOnly>} />
         <Route path="account" element={<AccountPage />} />
         <Route path="admin" element={<Protected admin><AdminOverview /></Protected>} />
+        <Route path="admin/today" element={<Protected admin><AdminToday /></Protected>} />
         <Route path="admin/approvals" element={<Protected admin><ApprovalsPage /></Protected>} />
         <Route path="admin/clients" element={<Protected admin><ClientsPage /></Protected>} />
         <Route path="admin/pillars" element={<Protected admin><PillarsPage /></Protected>} />

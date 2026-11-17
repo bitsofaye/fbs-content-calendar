@@ -14,13 +14,6 @@ export function AuthProvider({ children }) {
     tokenStore.set(null);
     setUser(null);
     queryClient.clear();
-    // back to the FBS colours on the sign-in page
-    try {
-      localStorage.removeItem('cc_brand_css');
-    } catch {
-      /* storage blocked */
-    }
-    document.getElementById('cc-client-brand')?.remove();
   }, [queryClient]);
 
   useEffect(() => {

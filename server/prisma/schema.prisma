@@ -89,6 +89,7 @@ model Client {
   name       String
   slug       String   @unique
   brandColor String   @default("#2563eb")
+  secondaryColor String? // optional second brand colour: accents, badges, focus rings
   logoUrl    String?
   industry   String?
   active     Boolean  @default(true)

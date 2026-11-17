@@ -7,6 +7,7 @@ import { EmptyState, fmtNumber, FullPageSpinner, KpiTile, PageHeader } from '../
 import PillarMix from '../../components/PillarMix';
 import ClientPostRow from '../../components/ClientPostRow';
 import PostDrawer from '../../components/PostDrawer';
+import TodayHeadline from '../../components/TodayHeadline';
 import { useMyClient } from './useMyClient';
 
 const NONE = [];
@@ -51,22 +52,25 @@ export default function ClientOverview() {
   const next7 = d.next7 || NONE;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-7 p-4 sm:p-8">
+    <div className="w-full space-y-7 p-4 sm:p-8">
       <PageHeader
         eyebrow={`Dashboard · ${monthLabel(month)}`}
         title={`Good day, ${user.name.split(' ')[0]}`}
         description={`Your ${client.name} content calendar with FBS.`}
         actions={
           <button className="btn-primary" onClick={() => setDraft({ date: today, status: 'IN_PROGRESS' })}>
-            <Plus className="h-4 w-4" /> Add post
+            <Plus className="h-4 w-4" /> New post
           </button>
         }
       />
 
+      {/* the headline: today's posts, first thing after signing in */}
+      <TodayHeadline to={`/c/${client.slug}?view=daily&day=${today}`} count={next7.filter((p) => p.date === today).length} scope={`for ${client.name}`} />
+
       {/* the numbers */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KpiTile solid to={`/c/${client.slug}`} label="Posts this month" value={d.totals.total} icon={CalendarRange} hint={d.totals.ads ? `${d.totals.ads} ads` : 'organic & ads'} />
-        <KpiTile to="/approvals?tab=published" label="Published" value={d.totals.published} icon={CheckCircle2} tone="green" hint={d.totals.total ? `${Math.round((d.totals.published / d.totals.total) * 100)}% of the month` : undefined} />
+        <KpiTile label="Published" value={d.totals.published} icon={CheckCircle2} tone="green" hint={d.totals.total ? `${Math.round((d.totals.published / d.totals.total) * 100)}% of the month` : undefined} />
         <KpiTile to="/approvals" label="Waiting for your approval" value={awaiting.length} icon={Clock} tone="amber" hint="all dates" />
         <KpiTile to="/approvals?tab=revising" label="Being revised by FBS" value={beingRevised.length} icon={ListChecks} tone="orange" hint="after your feedback" />
       </div>

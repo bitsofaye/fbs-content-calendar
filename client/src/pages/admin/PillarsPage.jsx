@@ -140,6 +140,18 @@ export default function PillarsPage() {
     (r) => `${r.n} pillar${r.n === 1 ? '' : 's'} saved`,
   );
   const badName = [...changed.map((p) => edits[p.id]), ...toAdd].some((f) => !f.name.trim());
+  const clientName = clients.find((c) => c.id === cid)?.name || 'this client';
+  const delPillars = useAdminMutation(
+    () => api.delete('/pillars', { params: { clientId: cid } }).then((r) => r.data),
+    PILLAR_KEYS,
+    (r) => `${r.count} pillar${r.count === 1 ? '' : 's'} deleted`,
+  );
+  const delThemes = useAdminMutation(
+    () => api.delete('/themes', { params: { clientId: cid, year } }).then((r) => r.data),
+    ['themes'],
+    (r) => `${r.count} theme${r.count === 1 ? '' : 's'} deleted`,
+  );
+  const postsWithPillar = (pillars || []).reduce((s, p) => s + (p._count?.posts || 0), 0);
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -159,6 +171,20 @@ export default function PillarsPage() {
             </p>
           </div>
           {pendingCount > 0 && <span className="text-xs text-amber-700">{pendingCount} unsaved</span>}
+          {pillars?.length > 0 && (
+            <button
+              className="btn-ghost text-red-600"
+              title={`Delete every pillar of ${clientName}`}
+              disabled={delPillars.isPending}
+              onClick={() =>
+                confirm(
+                  `Delete all ${pillars.length} pillars of ${clientName}?${postsWithPillar ? ` ${postsWithPillar} posts become uncategorized.` : ''} This cannot be undone.`,
+                ) && delPillars.mutate()
+              }
+            >
+              <Trash2 className="h-4 w-4" /> {delPillars.isPending ? 'Deleting…' : 'Delete all'}
+            </button>
+          )}
           <button
             className="btn-primary"
             disabled={!pendingCount || badName || saveAll.isPending}
@@ -247,7 +273,17 @@ export default function PillarsPage() {
             <h2 className="font-semibold text-brand-700">Monthly themes</h2>
             <p className="text-xs text-slate-500">Shown as a banner above the calendar for that month, with the weekly focus topics.</p>
           </div>
-          <select className="input ml-auto w-auto" value={year} onChange={(e) => setYear(Number(e.target.value))}>
+          {themes.length > 0 && (
+            <button
+              className="btn-ghost ml-auto text-red-600"
+              title={`Delete every ${year} theme of ${clientName}`}
+              disabled={delThemes.isPending}
+              onClick={() => confirm(`Delete all ${themes.length} monthly themes of ${clientName} for ${year}? This cannot be undone.`) && delThemes.mutate()}
+            >
+              <Trash2 className="h-4 w-4" /> {delThemes.isPending ? 'Deleting…' : `Delete all ${year}`}
+            </button>
+          )}
+          <select className={`input w-auto ${themes.length ? '' : 'ml-auto'}`} value={year} onChange={(e) => setYear(Number(e.target.value))}>
             {[year - 1, year, year + 1].map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, FileText, FolderOpen, Link2, Plus } from 'lucide-react';
 import { useDriveLinks } from '../api/hooks';
-import { driveInfo, folderEmbedUrl, isHttps } from '../lib/drive';
+import { driveInfo, isHttps } from '../lib/drive';
+import DriveBrowser from './DriveBrowser';
 import { Modal, Spinner } from './ui';
 
 const ICON = { folder: FolderOpen, file: FileText, doc: FileText, other: Link2 };
@@ -16,12 +17,26 @@ export default function DrivePicker({ open, onClose, client, isAdmin, onAdd }) {
   const [picked, setPicked] = useState(() => new Set());
   const [browsing, setBrowsing] = useState(null); // a Drive link whose folder is shown
   const [pasted, setPasted] = useState('');
+  const [files, setFiles] = useState(() => new Map()); // files ticked while browsing: url → file
+  const [folderLink, setFolderLink] = useState(''); // any Drive folder link to browse
+  const folderLinkOk = driveInfo(folderLink).kind === 'folder';
 
   const close = () => {
     setPicked(new Set());
     setBrowsing(null);
     setPasted('');
+    setFiles(new Map());
+    setFolderLink('');
     onClose();
+  };
+  const toggleFile = (f) => setFiles((m) => {
+    const n = new Map(m);
+    n.has(f.url) ? n.delete(f.url) : n.set(f.url, f);
+    return n;
+  });
+  const addFiles = () => {
+    onAdd([...files.keys(), ...(isHttps(pasted) ? [pasted.trim()] : [])]);
+    close();
   };
   const toggle = (id) => setPicked((s) => {
     const n = new Set(s);
@@ -44,22 +59,28 @@ export default function DrivePicker({ open, onClose, client, isAdmin, onAdd }) {
       open={open}
       onClose={close}
       wide
-      title={browsing ? browsing.title : 'Add from Drive & File links'}
+      title={browsing ? `Browse · ${browsing.title}` : 'Add from Drive & File links'}
       footer={
         browsing ? (
           <div className="flex w-full flex-wrap items-center gap-2">
-            <button className="btn-secondary" onClick={() => { setBrowsing(null); setPasted(''); }}>
+            <button className="btn-secondary" onClick={() => { setBrowsing(null); setPasted(''); setFiles(new Map()); }}>
               <ArrowLeft className="h-4 w-4" /> Back
             </button>
             <input
-              className={`input min-w-[220px] flex-1 ${pasted.trim() && !isHttps(pasted) ? 'border-red-400' : ''}`}
-              placeholder="Paste the link of a file from this folder"
+              className={`input min-w-[200px] flex-1 ${pasted.trim() && !isHttps(pasted) ? 'border-red-400' : ''}`}
+              placeholder="…or paste a file link"
               value={pasted}
               onChange={(e) => setPasted(e.target.value)}
             />
-            <button className="btn-primary" disabled={!isHttps(pasted)} onClick={addPasted}>
-              <Plus className="h-4 w-4" /> Add file
-            </button>
+            {files.size > 0 ? (
+              <button className="btn-primary" onClick={addFiles}>
+                <Plus className="h-4 w-4" /> Add {files.size + (isHttps(pasted) ? 1 : 0)} file{files.size + (isHttps(pasted) ? 1 : 0) === 1 ? '' : 's'}
+              </button>
+            ) : (
+              <button className="btn-primary" disabled={!isHttps(pasted)} onClick={addPasted}>
+                <Plus className="h-4 w-4" /> Add file
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -72,20 +93,46 @@ export default function DrivePicker({ open, onClose, client, isAdmin, onAdd }) {
       }
     >
       {browsing ? (
-        <div className="space-y-2">
-          <iframe src={folderEmbedUrl(folderId)} title={browsing.title} className="h-[50vh] w-full rounded-lg border border-slate-200 bg-slate-50" />
-          <p className="text-xs text-slate-500">
-            Click a file to open it in Drive, copy its link (Share → Copy link) and paste it below. If the folder looks empty, it isn’t shared as “Anyone with the link”:{' '}
-            <a href={browsing.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-brand-600 hover:underline">
-              open it in Drive <ExternalLink className="h-3 w-3" />
-            </a>
-          </p>
+        <DriveBrowser client={client} root={{ id: folderId, title: browsing.title, url: browsing.url }} picked={files} onToggle={toggleFile} />
+      ) : (
+        <div className="space-y-4">
+          {/* any folder, not only the saved ones */}
+          <form
+            className="rounded-lg border border-brand-200 bg-brand-50/50 p-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (folderLinkOk) setBrowsing({ title: 'Drive folder', url: folderLink.trim() });
+            }}
+          >
+            <label className="label" htmlFor="cc-browse-folder">Browse a folder</label>
+            <div className="flex flex-wrap gap-2">
+              <input
+                id="cc-browse-folder"
+                className={`input min-w-[220px] flex-1 ${folderLink.trim() && !folderLinkOk ? 'border-red-400' : ''}`}
+                placeholder="Paste a Google Drive folder link"
+                value={folderLink}
+                onChange={(e) => setFolderLink(e.target.value)}
+              />
+              <button className="btn-primary" disabled={!folderLinkOk}>
+                <FolderOpen className="h-4 w-4" /> Browse
+              </button>
+            </div>
+            <p className="mt-1.5 text-xs text-slate-500">
+              {folderLink.trim() && !folderLinkOk ? 'That is not a Drive folder link. It should contain “/folders/”.' : 'Open the folder, go into its subfolders and tick the exact files to add.'}
+            </p>
+          </form>
+          {SavedLinks()}
         </div>
-      ) : isLoading ? (
+      )}
+    </Modal>
+  );
+
+  function SavedLinks() {
+    return isLoading ? (
         <div className="flex justify-center py-8"><Spinner /></div>
       ) : links.length ? (
         <div className="space-y-2">
-          <p className="text-xs text-slate-500">Tick the links to add to this post, or <b>Browse</b> a folder to pick one file from it.</p>
+          <p className="text-xs text-slate-500">Saved links of {client.name}. Tick links to add them as they are, or <b>Browse</b> a folder to pick exact files from it.</p>
           {[['DRIVE', 'Drive links'], ['FILE', 'File links']].map(([k, heading]) => {
             const group = links.filter((l) => (l.kind || 'DRIVE') === k);
             if (!group.length) return null;
@@ -124,7 +171,6 @@ export default function DrivePicker({ open, onClose, client, isAdmin, onAdd }) {
           {' '}or{' '}
           <Link to={`/c/${client.slug}/files`} className="font-medium text-brand-600 hover:underline" onClick={close}>File links page</Link>.
         </p>
-      )}
-    </Modal>
-  );
+      );
+  }
 }

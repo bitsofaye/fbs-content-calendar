@@ -30,6 +30,16 @@ router.put('/', requireAdmin, validate(themeUpsert), async (req, res) => {
   res.json({ theme });
 });
 
+// Delete all of one client's monthly themes for one year
+router.delete('/', requireAdmin, async (req, res) => {
+  const clientId = typeof req.query.clientId === 'string' ? req.query.clientId : '';
+  const year = Number(req.query.year);
+  if (!clientId) throw badRequest('clientId is required');
+  if (!Number.isInteger(year)) throw badRequest('year is required');
+  const { count } = await prisma.monthlyTheme.deleteMany({ where: { clientId, year } });
+  res.json({ ok: true, count });
+});
+
 router.delete('/:id', requireAdmin, async (req, res) => {
   await prisma.monthlyTheme.delete({ where: { id: req.params.id } });
   res.json({ ok: true });

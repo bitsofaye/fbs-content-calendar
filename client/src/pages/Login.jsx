@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { CalendarDays, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { errorMessage } from '../lib/api';
 
@@ -35,14 +35,11 @@ export default function Login() {
   return (
     <div className="flex min-h-full items-center justify-center bg-gradient-to-br from-brand-50 via-canvas to-white p-4">
       <form onSubmit={onSubmit} className="card w-full max-w-sm p-6">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-700">
-            <CalendarDays className="h-6 w-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold text-brand-700">Content Calendar</h1>
-            <p className="text-xs text-slate-500">Sign in to plan, review and approve posts</p>
-          </div>
+        <div className="mb-6">
+          <img src="/brand/fbs-logo.png" alt="Frontline Business Solutions" className="h-9 w-auto dark:hidden" />
+          <img src="/brand/fbs-logo-white.png" alt="Frontline Business Solutions" className="hidden h-9 w-auto dark:block" />
+          <h1 className="mt-3 text-lg font-semibold text-brand-700">FBS Content Calendar</h1>
+          <p className="text-xs text-slate-500">Sign in to plan, review and approve posts</p>
         </div>
         <label className="label" htmlFor="email">Email</label>
         <input id="email" type="email" autoComplete="username" className="input mb-3" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />

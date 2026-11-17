@@ -9,7 +9,7 @@ import { validate } from '../middleware/validate.js';
 import { matchApprover } from '../importers/commitImport.js';
 
 const router = Router();
-const withClient = { client: { select: { id: true, name: true, slug: true, brandColor: true } } };
+const withClient = { client: { select: { id: true, name: true, slug: true, brandColor: true, secondaryColor: true } } };
 
 // People who can be picked as approver / assignee for a client's posts: all admins + that client's users
 router.get('/options', async (req, res) => {

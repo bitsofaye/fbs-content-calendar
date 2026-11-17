@@ -103,7 +103,7 @@ function Column({ column, posts, onOpen, isAdmin, dragging, fromHere }) {
       <div className="flex max-h-[68vh] min-h-[120px] flex-col gap-2.5 overflow-y-auto px-2.5 pb-3">
         {/* where the card will land: a clear "drop here" slot at the top of the column */}
         {target && (
-          <div className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-dashed py-4 text-xs font-semibold" style={{ borderColor: column.color, color: column.color }}>
+          <div className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-dashed py-4 text-xs font-semibold ink" style={{ borderColor: column.color, '--ink': column.color }}>
             <ArrowDownToLine className="h-4 w-4" /> Move to {column.label}
           </div>
         )}

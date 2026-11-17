@@ -18,7 +18,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
   const { email, password } = req.valid.body;
   const user = await prisma.user.findUnique({
     where: { email },
-    include: { client: { select: { id: true, name: true, slug: true, brandColor: true, deletedAt: true } } },
+    include: { client: { select: { id: true, name: true, slug: true, brandColor: true, secondaryColor: true, logoUrl: true, industry: true, deletedAt: true } } },
   });
   // same message for unknown email and wrong password
   if (!user || !user.active || !(await bcrypt.compare(password, user.passwordHash))) {

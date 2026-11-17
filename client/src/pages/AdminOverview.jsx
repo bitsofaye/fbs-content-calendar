@@ -5,8 +5,9 @@ import { useOverview } from '../api/hooks';
 import { useAuth } from '../context/AuthContext';
 import { monthLabel } from '../lib/dates';
 import { clientHealth, HEALTH } from '../lib/health';
-import { usePins } from '../lib/pins';
-import { EmptyState, FullPageSpinner, KpiTile, PageHeader } from '../components/ui';
+import { CALENDAR_PAGES, usePins } from '../lib/pins';
+import { ClientMark, EmptyState, FullPageSpinner, KpiTile, PageHeader } from '../components/ui';
+import PinPagePicker from '../components/PinPagePicker';
 
 function HealthPill({ health }) {
   const h = HEALTH[health];
@@ -22,7 +23,7 @@ const SORTS = {
 export default function AdminOverview() {
   const { user } = useAuth();
   const { data, isLoading } = useOverview();
-  const { isPinned, toggle } = usePins(user?.id);
+  const { isPinned, toggle, pageOf, setPage } = usePins(user?.id);
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [show, setShow] = useState('all');
@@ -59,7 +60,7 @@ export default function AdminOverview() {
     .sort(SORTS[sort].fn);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-7 p-4 sm:p-8">
+    <div className="w-full space-y-7 p-4 sm:p-8">
       <PageHeader
         eyebrow={`Dashboard · ${monthLabel(data.today.slice(0, 7))}`}
         title={`Good day, ${user.name.split(' ')[0]}`}
@@ -74,9 +75,9 @@ export default function AdminOverview() {
       {/* 1. four numbers for all clients together */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KpiTile solid to="/admin?sort=posts" label="Posts this month" value={totals.posts} icon={CalendarRange} hint={`${totals.published} published`} />
-        <KpiTile to="/admin/approvals?tab=waiting" label="Waiting for approval" value={totals.waiting} icon={Clock} tone="amber" hint="all clients" />
-        <KpiTile to="/admin/approvals?tab=edits" label="Needs edits" value={totals.edits} icon={ListChecks} tone="orange" hint="to edit / rejected" />
-        <KpiTile to="/admin/approvals?tab=next7" label="Next 7 days" value={totals.next7} icon={CalendarClock} tone="brand" hint="posts going out" />
+        <KpiTile label="Waiting for approval" value={totals.waiting} icon={Clock} tone="amber" hint="all clients" />
+        <KpiTile label="Needs edits" value={totals.edits} icon={ListChecks} tone="orange" hint="to edit / rejected" />
+        <KpiTile label="Next 7 days" value={totals.next7} icon={CalendarClock} tone="brand" hint="posts going out" />
       </div>
 
       {/* 2. only the clients that need something */}
@@ -156,11 +157,11 @@ export default function AdminOverview() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {table.map((r) => (
-                <tr key={r.id} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/c/${r.slug}`)}>
+                <tr key={r.id} className="group cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/c/${r.slug}`)}>
                   <td className="px-2 py-2 text-center">
                     <button
-                      className={`cursor-pointer rounded p-1 ${isPinned(r.id) ? 'text-brand-600' : 'text-slate-300 hover:text-slate-700'}`}
-                      title={isPinned(r.id) ? 'Unpin from sidebar' : 'Pin to sidebar'}
+                      className={`cursor-pointer rounded p-1 ${isPinned(r.id) ? 'text-brand-600' : 'text-slate-400 hover:text-slate-700'}`}
+                      title={isPinned(r.id) ? 'Favourite: listed first in the sidebar. Click to remove' : 'Add to favourites (listed first in the sidebar)'}
                       onClick={(e) => {
                         e.stopPropagation();
                         toggle(r.id);
@@ -171,8 +172,8 @@ export default function AdminOverview() {
                   </td>
                   <td className="px-2 py-2">
                     <div className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: r.brandColor }} />
-                      <span className="min-w-0">
+                      <ClientMark client={r} />
+                      <span className="min-w-0 flex-1">
                         <span className="block truncate font-medium text-slate-800">{r.name}</span>
                         {r.industry && <span className="block truncate text-xs text-slate-500">{r.industry}</span>}
                       </span>

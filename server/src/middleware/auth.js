@@ -23,7 +23,7 @@ export async function requireAuth(req, _res, next) {
 
   const user = await prisma.user.findUnique({
     where: { id: payload.sub },
-    include: { client: { select: { id: true, name: true, slug: true, brandColor: true, deletedAt: true } } },
+    include: { client: { select: { id: true, name: true, slug: true, brandColor: true, secondaryColor: true, logoUrl: true, industry: true, deletedAt: true } } },
   });
   if (!user || !user.active) throw unauthorized('Account not found or disabled');
   if (user.client?.deletedAt) throw unauthorized('This company was removed from the content calendar');

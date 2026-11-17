@@ -7,20 +7,12 @@
     <meta name="theme-color" content="#630B3C" />
     <link rel="preload" href="/fonts/poppins-400.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/poppins-600.woff2" as="font" type="font/woff2" crossorigin />
-    <title>Content Calendar</title>
+    <title>FBS Content Calendar</title>
     <script>
       // night mode before the first paint (no white flash); lib/darkMode.js keeps it in sync afterwards
       try {
         var t = localStorage.getItem('cc_theme');
         if (t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
-        // a signed-in client's own colour theme (saved by lib/theme.js); FBS accounts have none
-        var brand = localStorage.getItem('cc_token') && localStorage.getItem('cc_brand_css');
-        if (brand) {
-          var s = document.createElement('style');
-          s.id = 'cc-client-brand';
-          s.textContent = brand;
-          document.head.appendChild(s);
-        }
       } catch (e) {}
     </script>
   </head>

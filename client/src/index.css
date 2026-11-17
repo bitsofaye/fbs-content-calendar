@@ -49,7 +49,7 @@
   --color-slate-100: #f3edf0;
   --color-slate-200: #ece4e8;
   --color-slate-300: #ddcfd6;
-  --color-slate-400: #7d6e76;
+  --color-slate-400: #a8979f;
   --color-slate-500: #6e6169;
   --color-slate-600: #5a4c54;
   --color-slate-700: #43353d;
@@ -103,7 +103,7 @@ body {
   @apply btn bg-red-600 text-white hover:bg-red-700;
 }
 @utility btn-success {
-  @apply btn bg-emerald-700 text-white hover:bg-emerald-800;
+  @apply btn bg-emerald-600 text-white hover:bg-emerald-700;
 }
 /* horizontal strips (view tabs, day strip) scroll without showing a scrollbar */
 @utility scrollbar-none {
@@ -143,7 +143,16 @@ body {
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --brand-base: #921259;
+  --brand-base: #921259; /* main colour (FBS magenta, or a client's main colour) */
+  --brand-accent: #b1217a; /* second colour (FBS pink, or a client's second colour) */
+}
+
+/* text in a colour picked at run time (style="--ink: #…"): kept light enough to read at night */
+.ink {
+  color: var(--ink);
+}
+html.dark .ink {
+  color: oklch(from var(--ink) max(l, 0.78) min(c, 0.17) h);
 }
 
 html.dark {
@@ -154,8 +163,8 @@ html.dark {
   --color-slate-100: #2c252a;
   --color-slate-200: #3a3137;
   --color-slate-300: #4e434a;
-  --color-slate-400: #9d8f96;
-  --color-slate-500: #b3a6ac;
+  --color-slate-400: #918389; /* hints and placeholders: still readable on the dark cards */
+  --color-slate-500: #a5979e;
   --color-slate-600: #c1b4ba;
   --color-slate-700: #d8ccd2;
   --color-slate-800: #ece3e7;
@@ -165,12 +174,14 @@ html.dark {
   --color-brand-50: oklch(from var(--brand-base) 0.26 calc(c * 0.35) h);
   --color-brand-100: oklch(from var(--brand-base) 0.31 calc(c * 0.45) h);
   --color-brand-200: oklch(from var(--brand-base) 0.4 calc(c * 0.5) h);
-  --color-brand-500: oklch(from var(--brand-base) 0.74 min(c, 0.16) h);
-  --color-brand-600: oklch(from var(--brand-base) 0.7 min(c, 0.16) h);
+  /* light shades (used as text) are kept bright; deep shades (behind white text) are kept dark */
+  --color-brand-500: oklch(from var(--brand-accent) 0.76 min(c, 0.16) h);
+  --color-brand-600: oklch(from var(--brand-base) 0.72 min(c, 0.16) h);
   --color-brand-700: oklch(from var(--brand-base) 0.5 min(c, 0.17) h);
   --color-brand-800: oklch(from var(--brand-base) 0.43 min(c, 0.16) h);
   --color-brand-900: oklch(from var(--brand-base) 0.37 min(c, 0.15) h);
   --color-accent: var(--color-brand-500);
+  --color-stone-50: oklch(from #78716c 0.27 calc(c * 0.5) h); --color-stone-100: oklch(from #78716c 0.31 calc(c * 0.6) h); --color-stone-200: oklch(from #78716c 0.4 calc(c * 0.7) h); --color-stone-300: oklch(from #78716c 0.5 calc(c * 0.8) h); --color-stone-700: oklch(from #78716c 0.84 c h); --color-stone-800: oklch(from #78716c 0.88 c h); --color-stone-900: oklch(from #78716c 0.92 c h);
 
   --color-amber-50: oklch(from #f59e0b 0.27 calc(c * 0.35) h); --color-amber-100: oklch(from #f59e0b 0.31 calc(c * 0.45) h); --color-amber-200: oklch(from #f59e0b 0.4 calc(c * 0.55) h); --color-amber-300: oklch(from #f59e0b 0.5 calc(c * 0.65) h); --color-amber-700: oklch(from #f59e0b 0.82 calc(c * 0.75) h); --color-amber-800: oklch(from #f59e0b 0.87 calc(c * 0.6) h); --color-amber-900: oklch(from #f59e0b 0.91 calc(c * 0.5) h);
   --color-cyan-50: oklch(from #06b6d4 0.27 calc(c * 0.35) h); --color-cyan-100: oklch(from #06b6d4 0.31 calc(c * 0.45) h); --color-cyan-200: oklch(from #06b6d4 0.4 calc(c * 0.55) h); --color-cyan-300: oklch(from #06b6d4 0.5 calc(c * 0.65) h); --color-cyan-700: oklch(from #06b6d4 0.82 calc(c * 0.75) h); --color-cyan-800: oklch(from #06b6d4 0.87 calc(c * 0.6) h); --color-cyan-900: oklch(from #06b6d4 0.91 calc(c * 0.5) h);
@@ -201,115 +212,42 @@ html.dark [class*="text-white/"] {
 /* deep brand text (headings, selected tabs) reads better a little lighter on dark */
 html.dark .text-brand-700,
 html.dark .text-brand-800,
-html.dark .page-title {
+html.dark .page-title,
+html.dark .hover\:text-brand-700:hover,
+html.dark .hover\:text-brand-800:hover {
   color: var(--color-brand-500);
 }
-/* the emerald scale is lightened at night, so the green button keeps fixed deep greens */
-html.dark .btn-success {
-  background-color: #047857;
+/* the light brand shades are bright at night, so text on them turns dark (badges, today, selected tabs) */
+html.dark .bg-brand-500.text-white,
+html.dark .bg-brand-600.text-white {
+  color: #1a1016;
 }
+/* mid-strength colour text (warnings, errors, "done" ticks) is too dim on dark cards: use the lighter tone */
+html.dark .text-red-500, html.dark .text-red-600 { color: #f87171; }
+html.dark .text-rose-500, html.dark .text-rose-600 { color: #fb7185; }
+html.dark .text-amber-500, html.dark .text-amber-600 { color: #fbbf24; }
+html.dark .text-orange-500, html.dark .text-orange-600 { color: #fb923c; }
+html.dark .text-yellow-500, html.dark .text-yellow-600 { color: #facc15; }
+html.dark .text-green-500, html.dark .text-green-600 { color: #4ade80; }
+html.dark .text-emerald-500, html.dark .text-emerald-600 { color: #34d399; }
+html.dark .text-teal-500, html.dark .text-teal-600 { color: #2dd4bf; }
+html.dark .text-sky-500, html.dark .text-sky-600 { color: #38bdf8; }
+html.dark .text-cyan-500, html.dark .text-cyan-600 { color: #22d3ee; }
+html.dark .text-indigo-500, html.dark .text-indigo-600 { color: #818cf8; }
+html.dark .text-violet-500, html.dark .text-violet-600 { color: #a78bfa; }
+html.dark .text-fuchsia-500, html.dark .text-fuchsia-600 { color: #e879f9; }
 html.dark .btn-success:hover {
-  background-color: #065f46;
+  background-color: #047857;
 }
 html.dark .btn-danger:hover {
   background-color: #b91c1c;
 }
 /* soft overlay behind pop-ups */
-html.dark .bg-slate-900/30,
-html.dark .bg-slate-900/40,
-html.dark .bg-slate-900/50 {
+html.dark .bg-slate-900\/30,
+html.dark .bg-slate-900\/40,
+html.dark .bg-slate-900\/50 {
   background-color: rgb(0 0 0 / 0.55);
 }
-
-/* ---- night mode: keep every text readable ---- */
-/* coloured text (warnings, counts, links) a step lighter on dark surfaces */
-html.dark .text-red-500,
-html.dark .text-red-600 {
-  color: oklch(from #ef4444 0.78 calc(c * 0.85) h);
-}
-html.dark .text-orange-500,
-html.dark .text-orange-600 {
-  color: oklch(from #f97316 0.78 calc(c * 0.85) h);
-}
-html.dark .text-amber-500,
-html.dark .text-amber-600 {
-  color: oklch(from #f59e0b 0.78 calc(c * 0.85) h);
-}
-html.dark .text-yellow-500,
-html.dark .text-yellow-600 {
-  color: oklch(from #eab308 0.78 calc(c * 0.85) h);
-}
-html.dark .text-green-500,
-html.dark .text-green-600 {
-  color: oklch(from #22c55e 0.78 calc(c * 0.85) h);
-}
-html.dark .text-emerald-500,
-html.dark .text-emerald-600 {
-  color: oklch(from #10b981 0.78 calc(c * 0.85) h);
-}
-html.dark .text-teal-500,
-html.dark .text-teal-600 {
-  color: oklch(from #14b8a6 0.78 calc(c * 0.85) h);
-}
-html.dark .text-cyan-500,
-html.dark .text-cyan-600 {
-  color: oklch(from #06b6d4 0.78 calc(c * 0.85) h);
-}
-html.dark .text-sky-500,
-html.dark .text-sky-600 {
-  color: oklch(from #0ea5e9 0.78 calc(c * 0.85) h);
-}
-html.dark .text-blue-500,
-html.dark .text-blue-600 {
-  color: oklch(from #3b82f6 0.78 calc(c * 0.85) h);
-}
-html.dark .text-indigo-500,
-html.dark .text-indigo-600 {
-  color: oklch(from #6366f1 0.78 calc(c * 0.85) h);
-}
-html.dark .text-violet-500,
-html.dark .text-violet-600 {
-  color: oklch(from #8b5cf6 0.78 calc(c * 0.85) h);
-}
-html.dark .text-purple-500,
-html.dark .text-purple-600 {
-  color: oklch(from #a855f7 0.78 calc(c * 0.85) h);
-}
-html.dark .text-fuchsia-500,
-html.dark .text-fuchsia-600 {
-  color: oklch(from #d946ef 0.78 calc(c * 0.85) h);
-}
-html.dark .text-pink-500,
-html.dark .text-pink-600 {
-  color: oklch(from #ec4899 0.78 calc(c * 0.85) h);
-}
-html.dark .text-rose-500,
-html.dark .text-rose-600 {
-  color: oklch(from #f43f5e 0.78 calc(c * 0.85) h);
-}
-/* small white-text badges and selected pills sit on the deeper brand shade */
-html.dark .bg-brand-500.text-white,
-html.dark .bg-brand-600.text-white {
-  background-color: var(--color-brand-700);
-}
-/* the yellow "needs attention" count keeps dark text */
-html.dark .bg-amber-400 {
-  color: #24161e;
-}
-/* form controls */
-html.dark ::placeholder {
-  color: var(--color-slate-400);
-  opacity: 1;
-}
-html.dark select option {
-  background-color: var(--color-white);
-  color: var(--color-slate-800);
-}
-html.dark input[type='date']::-webkit-calendar-picker-indicator,
-html.dark input[type='time']::-webkit-calendar-picker-indicator {
-  filter: invert(0.85);
-}
-
 html.dark img {
   color-scheme: light;
 }

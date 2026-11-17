@@ -1,5 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
-import { CheckCircle2, Clock, Inbox, ListChecks, Send } from 'lucide-react';
+import { CheckCircle2, Clock, Inbox, ListChecks } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { usePosts } from '../../api/hooks';
 import { EmptyState, FullPageSpinner } from '../../components/ui';
 import ClientPostRow from '../../components/ClientPostRow';
@@ -8,20 +9,20 @@ import { useMyClient } from './useMyClient';
 
 const TABS = [
   { id: 'waiting', label: 'Waiting for you', icon: Clock, status: 'FOR_APPROVAL', action: 'Review', primary: true, empty: 'Nothing is waiting for your approval', sort: 'asc' },
-  { id: 'revising', label: 'Being revised', icon: ListChecks, status: 'TO_EDIT,REJECTED', action: 'Open', empty: 'No posts are being revised', sort: 'asc', note: 'FBS is working on your feedback' },
-  { id: 'approved', label: 'Approved & scheduled', icon: Send, status: 'APPROVED,SCHEDULED', action: 'Open', empty: 'No approved posts waiting to go live', sort: 'asc' },
-  { id: 'published', label: 'Published', icon: CheckCircle2, status: 'PUBLISHED,BOOSTED', action: 'Open', empty: 'Nothing published yet', sort: 'desc' },
+  { id: 'revising', label: 'Your requested edits', icon: ListChecks, status: 'TO_EDIT,REJECTED', action: 'Open', empty: 'No posts are being revised', sort: 'asc', note: 'FBS is working on your feedback' },
 ];
 
-// Everything the client has to decide on, plus what happened to their earlier decisions.
+// Only what is this login's: posts where they are the approver (or no approver is set yet), waiting or being revised
 export default function ClientApprovals() {
   const { client, isLoading, openId, open, close } = useMyClient();
+  const { user } = useAuth();
   const [sp, setSp] = useSearchParams();
   const tab = TABS.find((t) => t.id === sp.get('tab')) || TABS[0];
   const lists = TABS.map((t) => usePosts({ clientId: client?.id, status: t.status, limit: 300 }));
+  const mine = (list) => (list || []).filter((p) => !p.approver?.id || p.approver.id === user?.id);
   if (isLoading || !client) return <FullPageSpinner />;
 
-  const posts = [...(lists[TABS.indexOf(tab)].data || [])].sort((a, b) =>
+  const posts = [...mine(lists[TABS.indexOf(tab)].data)].sort((a, b) =>
     tab.sort === 'desc' ? (b.date || '').localeCompare(a.date || '') : (a.date || '9999').localeCompare(b.date || '9999'),
   );
 
@@ -34,7 +35,7 @@ export default function ClientApprovals() {
 
       <div className="flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-1">
         {TABS.map((t, i) => {
-          const n = lists[i].data?.length;
+          const n = lists[i].data ? mine(lists[i].data).length : undefined;
           return (
             <button
               key={t.id}

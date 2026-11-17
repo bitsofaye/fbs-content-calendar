@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2, X } from 'lucide-react';
 import { PLACEMENT, STATUS } from '../lib/constants';
@@ -71,6 +71,34 @@ export function PlatformList({ placements = [] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/** A client's two brand colours as one dot (left half main colour, right half second colour). */
+export function BrandDot({ client, className = 'h-2.5 w-2.5' }) {
+  const a = client?.brandColor || '#cbd5e1';
+  const b = client?.secondaryColor || a;
+  return <span className={`inline-block shrink-0 rounded-full ${className}`} style={{ background: `linear-gradient(90deg, ${a} 50%, ${b} 50%)` }} />;
+}
+
+/** A client's logo; their brand-colour dot when there is no logo or it fails to load. */
+export function ClientMark({ client, size = 'h-5 w-5' }) {
+  const [broken, setBroken] = useState(false);
+  const src = client?.logoUrl;
+  useEffect(() => setBroken(false), [src]);
+  if (src && !broken) {
+    return (
+      <span className={`flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-[#fff] ring-1 ring-slate-200 ${size}`}>
+        <img src={src} alt="" className="h-full w-full object-contain" loading="lazy" onError={() => setBroken(true)} />
+      </span>
+    );
+  }
+  return (
+    <span className={`flex shrink-0 items-center justify-center ${size}`}>
+      <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#fff] ring-1 ring-slate-200">
+        <BrandDot client={client} className="h-2 w-2" />
+      </span>
+    </span>
   );
 }
 

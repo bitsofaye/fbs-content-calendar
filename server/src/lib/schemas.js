@@ -77,6 +77,7 @@ export const clientCreate = z.object({
   name: z.string().trim().min(1).max(120),
   slug: z.string().trim().regex(/^[a-z0-9-]+$/, 'Lowercase letters, numbers and dashes only').max(60).optional(),
   brandColor: color.optional(),
+  secondaryColor: color.nullable().optional().or(z.literal('')),
   logoUrl: z.string().url().max(2000).nullable().optional().or(z.literal('')),
   industry: z.string().max(120).nullable().optional(),
   withDefaultPillars: z.boolean().optional(),

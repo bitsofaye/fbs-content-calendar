@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
   BarChart3, CalendarCheck, CalendarDays, CalendarRange, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, Clock, Columns3, Eye, Lightbulb, ListChecks, Plus,
-  Rows3, Search, SlidersHorizontal, Sparkles, Star, Table2, Wand2, X,
+  MoreHorizontal, Rows3, Search, SlidersHorizontal, Sparkles, Star, Table2, Wand2, X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useClient, useClientDashboard, useGenerateMonth, usePosts, useThemes, useUserOptions } from '../api/hooks';
@@ -11,6 +11,7 @@ import { formatDate, monthBounds, monthGrid, monthKey, monthLabel, shiftMonth, t
 import { EmptyState, fmtNumber, FullPageSpinner, KpiTile, PillarDot } from '../components/ui';
 import { usePins } from '../lib/pins';
 import PostDrawer from '../components/PostDrawer';
+import GenerateContentModal from '../components/GenerateContentModal';
 import PillarMix from '../components/PillarMix';
 import CalendarView from './views/CalendarView';
 import SheetView from './views/SheetView';
@@ -19,10 +20,10 @@ import BoardView from './views/BoardView';
 import IdeasView from './views/IdeasView';
 
 const VIEWS = [
-  { id: 'daily', label: 'Daily View', icon: Rows3 },
+  { id: 'daily', label: "What's today", icon: Rows3 },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'sheet', label: 'Content plan', icon: Table2 },
-  { id: 'board', label: 'Board', icon: Columns3 },
+  { id: 'board', label: 'Status board', icon: Columns3 },
   { id: 'ideas', label: 'Idea bank', icon: Lightbulb },
 ];
 
@@ -44,6 +45,7 @@ export default function ClientDashboard() {
   const [showDetails, setShowDetails] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showAllAwaiting, setShowAllAwaiting] = useState(false);
+  const [genOpen, setGenOpen] = useState(false);
 
   const update = useCallback(
     (patch) =>
@@ -126,7 +128,7 @@ export default function ClientDashboard() {
     <div className="flex min-h-full flex-col">
       {/* header */}
       <div className="border-b border-slate-200 bg-white">
-        <div className="h-1.5" style={{ background: client.brandColor }} />
+        <div className="h-1.5" style={{ background: client.secondaryColor ? `linear-gradient(90deg, ${client.brandColor} 50%, ${client.secondaryColor} 50%)` : client.brandColor }} />
         {/* three parts: client on the left, the month truly centred, actions on the right */}
         <div className="grid grid-cols-1 items-center gap-3 px-4 py-3 sm:grid-cols-[1fr_auto_1fr] sm:px-6">
           <div className="flex min-w-0 items-center gap-1">
@@ -135,15 +137,6 @@ export default function ClientDashboard() {
               <h1 className="text-lg leading-tight font-semibold tracking-tight break-words text-brand-700 sm:text-xl">{client.name}</h1>
               <p className="text-xs text-slate-500">{client.industry || 'Content calendar'}</p>
             </div>
-            {isAdmin && (
-              <button
-                className={`cursor-pointer rounded p-1.5 ${isPinned(client.id) ? 'text-brand-600' : 'text-slate-300 hover:text-slate-700'}`}
-                title={isPinned(client.id) ? 'Unpin from sidebar' : 'Pin to sidebar'}
-                onClick={() => togglePin(client.id)}
-              >
-                <Star className="h-4 w-4" fill={isPinned(client.id) ? 'currentColor' : 'none'} />
-              </button>
-            )}
           </div>
 
           {/* month picker: only where the page shows a month (the Daily view has its own week strip; ideas have no date) */}
@@ -153,34 +146,67 @@ export default function ClientDashboard() {
               <span className="min-w-[150px] text-center text-lg font-semibold text-slate-800">{monthLabel(month)}</span>
               <button className="btn-ghost p-1.5" onClick={() => goMonth(1)} aria-label="Next month"><ChevronRight className="h-5 w-5" /></button>
               <button
-                className={`btn-ghost ml-1 p-1.5 ${month === monthKey(today) ? 'text-brand-600' : ''}`}
+                className="btn-secondary ml-1 px-2.5 py-1 text-xs"
+                disabled={month === monthKey(today) && day === today}
                 onClick={() => update({ month: monthKey(today), day: today })}
-                aria-label="Go to today"
-                title="Go to today"
               >
-                <CalendarCheck className="h-5 w-5" />
+                Today
               </button>
+              {view === 'calendar' && (
+                <div className="ml-2 inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
+                  {['month', 'week'].map((m) => (
+                    <button key={m} onClick={() => update({ cal: m === 'month' ? null : m })} className={`cursor-pointer rounded-md px-2.5 py-1 capitalize ${calMode === m ? 'bg-brand-700 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : <div className="hidden sm:block" />}
 
           <div className="flex items-center gap-2 sm:justify-end">
-            {showActions && isAdmin && (
-              <button
-                className="btn-secondary"
-                disabled={generate.isPending}
-                title="Create empty posts for each weekday pillar (e.g. every Monday → Motivational Monday)"
-                onClick={() => {
-                  if (confirm(`Create empty slots for every weekday pillar in ${monthLabel(month)}? Days that already have that pillar are skipped.`))
-                    generate.mutate({ clientId: client.id, year: bounds.year, month: bounds.month });
-                }}
-              >
-                <Wand2 className="h-4 w-4" /> <span className="hidden md:inline">Generate month</span>
-              </button>
-            )}
             {showActions && (
               <button className="btn-primary" onClick={() => newPost()}>
-                <Plus className="h-4 w-4" /> {isAdmin ? 'New post' : 'Add post'}
+                <Plus className="h-4 w-4" /> New post
               </button>
+            )}
+            {/* less-used actions tucked into one menu */}
+            {showActions && isAdmin && (
+              <details className="relative">
+                <summary className="btn-secondary list-none px-2.5 [&::-webkit-details-marker]:hidden" title="More actions">
+                  <MoreHorizontal className="h-4 w-4" />
+                </summary>
+                <div className="absolute right-0 z-30 mt-1 w-64 rounded-xl border border-slate-200 bg-white p-1 shadow-lift">
+                  <button
+                    className="flex w-full cursor-pointer items-start gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-brand-50"
+                    onClick={(e) => {
+                      e.currentTarget.closest('details').open = false;
+                      setGenOpen(true);
+                    }}
+                  >
+                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+                    <span>
+                      <span className="block font-medium text-slate-800">Generate content</span>
+                      <span className="block text-xs text-slate-500">AI drafts for a day, a week or the month</span>
+                    </span>
+                  </button>
+                  <button
+                    className="flex w-full cursor-pointer items-start gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-brand-50"
+                    disabled={generate.isPending}
+                    onClick={(e) => {
+                      e.currentTarget.closest('details').open = false;
+                      if (confirm(`Create empty slots for every weekday pillar in ${monthLabel(month)}? Days that already have that pillar are skipped.`))
+                        generate.mutate({ clientId: client.id, year: bounds.year, month: bounds.month });
+                    }}
+                  >
+                    <Wand2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+                    <span>
+                      <span className="block font-medium text-slate-800">Fill month with pillar slots</span>
+                      <span className="block text-xs text-slate-500">Adds an empty post for each weekday pillar</span>
+                    </span>
+                  </button>
+                </div>
+              </details>
             )}
           </div>
         </div>
@@ -274,15 +300,6 @@ export default function ClientDashboard() {
               <X className="h-3.5 w-3.5" /> Clear
             </button>
           )}
-          {view === 'calendar' && (
-            <div className="ml-auto inline-flex rounded-md border border-slate-300 bg-white p-0.5 text-xs">
-              {['month', 'week'].map((m) => (
-                <button key={m} onClick={() => update({ cal: m === 'month' ? null : m })} className={`cursor-pointer rounded px-2.5 py-1 capitalize ${calMode === m ? 'bg-brand-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
-                  {m}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
         {(filtersOpen || filterCount > 0) && (
         <div className="card flex flex-wrap items-center gap-2 px-3 py-2.5">
@@ -334,6 +351,7 @@ export default function ClientDashboard() {
           }}
         />
       )}
+      {isAdmin && genOpen && <GenerateContentModal open={genOpen} onClose={() => setGenOpen(false)} client={client} day={day} month={month} />}
     </div>
   );
 }

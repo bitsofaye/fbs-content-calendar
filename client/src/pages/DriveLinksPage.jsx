@@ -154,7 +154,7 @@ export function LinksPage({ kind }) {
   return (
     <div className="flex min-h-full flex-col">
       <div className="border-b border-slate-200 bg-white">
-        <div className="h-1.5" style={{ background: client.brandColor }} />
+        <div className="h-1.5" style={{ background: client.secondaryColor ? `linear-gradient(90deg, ${client.brandColor} 50%, ${client.secondaryColor} 50%)` : client.brandColor }} />
         <div className="px-4 py-3 sm:px-6">
           <h1 className="text-lg leading-tight font-semibold tracking-tight text-brand-700 sm:text-xl">{text.title}</h1>
           <p className="text-xs text-slate-500">{client.name} · {text.subtitle}</p>

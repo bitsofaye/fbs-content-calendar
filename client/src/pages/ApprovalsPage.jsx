@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CalendarClock, Clock, Inbox, ListChecks, UserCheck } from 'lucide-react';
+import { Inbox, ListChecks, UserCheck } from 'lucide-react';
 import { useClient, useOverview } from '../api/hooks';
 import { EmptyState, FullPageSpinner } from '../components/ui';
 import PostRow from '../components/PostRow';
@@ -13,15 +13,12 @@ function OpenPost({ slug, postId, onClose }) {
   return <PostDrawer key={postId} client={client} postId={postId} onClose={onClose} />;
 }
 
+// Only the work that is yours: posts you are the approver of, and posts assigned to you that need changes
 const TABS = [
-  { id: 'mine', label: 'My approvals', icon: UserCheck, key: 'myApprovals', empty: 'Nothing is waiting for you' },
-  { id: 'waiting', label: 'Waiting for approval', icon: Clock, key: 'awaitingApproval', empty: 'No posts are waiting for approval' },
-  { id: 'edits', label: 'Needs edits', icon: ListChecks, key: 'needsEdits', empty: 'No change requests' },
-  { id: 'next7', label: 'Next 7 days', icon: CalendarClock, key: 'upcoming', empty: 'Nothing is scheduled in the next 7 days' },
-  { id: 'requests', label: 'From clients', icon: Inbox, key: 'clientRequests', empty: 'No new posts from clients' },
+  { id: 'mine', label: 'Needs my approval', icon: UserCheck, key: 'myApprovals', empty: 'Nothing is waiting for your approval' },
+  { id: 'edits', label: 'Needs my edits', icon: ListChecks, key: 'myEdits', empty: 'No posts assigned to you need changes' },
 ];
 
-// All the work queues across clients, one tab at a time.
 export default function ApprovalsPage() {
   const { data, isLoading } = useOverview();
   const [sp, setSp] = useSearchParams();
@@ -52,7 +49,7 @@ export default function ApprovalsPage() {
     <div className="mx-auto max-w-5xl space-y-4 p-4 sm:p-6">
       <div>
         <h1 className="page-title">Approvals</h1>
-        <p className="text-sm text-slate-500">Everything that needs a decision or a fix, across all clients.</p>
+        <p className="text-sm text-slate-500">Posts where you are the approver, and posts assigned to you that need changes.</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -68,10 +65,12 @@ export default function ApprovalsPage() {
             </button>
           ))}
         </div>
-        <select className="input ml-auto w-auto" value={clientId} onChange={(e) => set({ client: e.target.value })} aria-label="Client">
-          <option value="">All clients</option>
-          {clientsInLists.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        {clientsInLists.length > 1 && (
+          <select className="input ml-auto w-auto" value={clientId} onChange={(e) => set({ client: e.target.value })} aria-label="Client">
+            <option value="">All clients</option>
+            {clientsInLists.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        )}
       </div>
 
       <section className="card overflow-hidden">
