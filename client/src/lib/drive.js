@@ -19,3 +19,30 @@ export function driveInfo(raw) {
 export const folderEmbedUrl = (id) => `https://drive.google.com/embeddedfolderview?id=${id}#grid`;
 
 export const isHttps = (s) => /^https:\/\/\S+$/i.test(String(s || '').trim());
+
+/**
+ * Google's viewer address for a Drive file or a Docs / Sheets / Slides file, so it can be shown inside the app.
+ * Nothing is copied: the file is streamed from Google Drive. Null for folders and non-Google links.
+ */
+export function driveEmbedUrl(raw) {
+  const info = driveInfo(raw);
+  if (!info.id) return null;
+  if (info.kind === 'file') return `https://drive.google.com/file/d/${info.id}/preview`;
+  if (info.kind === 'doc') {
+    const type = new URL(String(raw).trim()).pathname.match(/^\/(document|spreadsheets|presentation|forms)\//)?.[1];
+    if (type === 'forms') return `https://docs.google.com/forms/d/${info.id}/viewform?embedded=true`;
+    return `https://docs.google.com/${type || 'document'}/d/${info.id}/preview`;
+  }
+  return null;
+}
+
+/** Can this link be opened inside the app (a Drive file / folder or a Google Docs file)? */
+export const opensInApp = (raw) => {
+  const info = driveInfo(raw);
+  return info.kind === 'folder' ? Boolean(info.id) : Boolean(driveEmbedUrl(raw));
+};
+
+/** Open a Drive link in the app's viewer (the viewer is mounted once, in the page layout). */
+export function openInApp(url, { title, clientId } = {}) {
+  window.dispatchEvent(new CustomEvent('cc-open-drive', { detail: { url, title, clientId } }));
+}

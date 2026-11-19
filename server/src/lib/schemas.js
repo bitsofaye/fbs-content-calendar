@@ -78,11 +78,18 @@ export const clientCreate = z.object({
   slug: z.string().trim().regex(/^[a-z0-9-]+$/, 'Lowercase letters, numbers and dashes only').max(60).optional(),
   brandColor: color.optional(),
   secondaryColor: color.nullable().optional().or(z.literal('')),
-  logoUrl: z.string().url().max(2000).nullable().optional().or(z.literal('')),
+  // a web link to the logo, or an uploaded logo (shrunk in the browser to a small image first)
+  logoUrl: z
+    .union([
+      z.string().url().max(2000).regex(/^https?:\/\//i, 'The logo link must start with https://'),
+      z.string().max(200000, 'That logo image is too large').regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/, 'Upload a PNG, JPG or WebP image'),
+    ])
+    .nullable()
+    .optional()
+    .or(z.literal('')),
   industry: z.string().max(120).nullable().optional(),
-  withDefaultPillars: z.boolean().optional(),
 });
-export const clientUpdate = clientCreate.omit({ withDefaultPillars: true }).partial().extend({ active: z.boolean().optional() });
+export const clientUpdate = clientCreate.partial().extend({ active: z.boolean().optional() });
 
 export const pillarCreate = z.object({
   clientId: id,

@@ -8,15 +8,6 @@ import { deleteClientForever, purgeTrash, TRASH_DAYS } from '../lib/trash.js';
 
 const router = Router();
 
-export const DEFAULT_PILLARS = [
-  { name: 'Promotional', color: '#3b82f6' },
-  { name: 'Educational / Tips', color: '#10b981' },
-  { name: 'Engagement', color: '#f59e0b' },
-  { name: 'Testimonials', color: '#8b5cf6' },
-  { name: 'Announcements', color: '#f97316' },
-  { name: 'Holiday', color: '#e11d48' },
-];
-
 async function uniqueSlug(base, excludeId) {
   let slug = slugify(base);
   for (let i = 2; ; i++) {
@@ -95,14 +86,14 @@ router.get('/:key', async (req, res) => {
 });
 
 router.post('/', requireAdmin, validate(clientCreate), async (req, res) => {
-  const { withDefaultPillars, slug, logoUrl, secondaryColor, ...data } = req.valid.body;
+  // new clients start with no pillars: the team adds the client's own in Pillars & themes
+  const { slug, logoUrl, secondaryColor, ...data } = req.valid.body;
   const client = await prisma.client.create({
     data: {
       ...data,
       logoUrl: logoUrl || null,
       secondaryColor: secondaryColor || null,
       slug: await uniqueSlug(slug || data.name),
-      pillars: withDefaultPillars ? { create: DEFAULT_PILLARS.map((p, i) => ({ ...p, sortOrder: i })) } : undefined,
     },
   });
   res.status(201).json({ client });

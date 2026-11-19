@@ -67,13 +67,15 @@ function DayCell({ date, inMonth, posts, onOpen, onCreate, isAdmin, canCreate, t
   const isToday = date === todayISO();
   const holiday = PH_HOLIDAYS[date];
   const dayNum = Number(date.slice(8));
+  const create = () => onCreate({ date, pillarId: weekdayPillar?.id });
   return (
     <div
       ref={setNodeRef}
-      onDoubleClick={() => canCreate && onCreate({ date, pillarId: weekdayPillar?.id })}
+      // clicking an empty part of the day opens a new post on that date (posts stop the click themselves)
+      onClick={() => canCreate && create()}
       className={`group relative flex flex-col gap-1 border-r border-b border-slate-200 p-1.5 ${tall ? 'min-h-[420px]' : 'min-h-[120px]'} ${
         inMonth ? 'bg-white' : 'bg-slate-50/70'
-      } ${isOver ? 'bg-brand-50 ring-2 ring-brand-500 ring-inset' : ''}`}
+      } ${canCreate ? 'cursor-pointer hover:bg-brand-50/40' : ''} ${isOver ? 'bg-brand-50 ring-2 ring-brand-500 ring-inset' : ''}`}
     >
       <div className="flex items-center gap-1">
         <span
@@ -84,21 +86,31 @@ function DayCell({ date, inMonth, posts, onOpen, onCreate, isAdmin, canCreate, t
           {dayNum}
         </span>
         {holiday && <span className="truncate rounded bg-rose-50 px-1 text-[10px] font-medium text-rose-700" title={holiday}>{holiday}</span>}
-        {canCreate && (
-          <button
-            className="ml-auto cursor-pointer rounded p-0.5 text-slate-500 opacity-0 group-hover:opacity-100 hover:bg-slate-100 hover:text-slate-700 focus:opacity-100 [@media(hover:none)]:opacity-100"
-            title="Add post on this day"
-            onClick={() => onCreate({ date, pillarId: weekdayPillar?.id })}
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-        )}
       </div>
       <div className="flex flex-col gap-1">
         {posts.map((p) => (
           <PostChip key={p.id} post={p} onOpen={onOpen} draggable={isAdmin} compact={!tall && posts.length > 3} />
         ))}
       </div>
+      {canCreate && (
+        // a light "+" in the middle of the free space: bigger on an empty day, smaller under existing posts
+        <div className="flex flex-1 items-center justify-center py-0.5">
+          <button
+            type="button"
+            className={`flex cursor-pointer items-center justify-center rounded-full border border-dashed border-brand-200 bg-brand-50/70 text-brand-600 opacity-50 transition group-hover:opacity-100 hover:border-brand-500 hover:bg-brand-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-80 ${
+              posts.length ? 'h-6 w-6' : 'h-9 w-9'
+            }`}
+            title={`Add a post on ${date}`}
+            aria-label={`Add a post on ${date}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              create();
+            }}
+          >
+            <Plus className={posts.length ? 'h-3.5 w-3.5' : 'h-5 w-5'} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -107,7 +119,8 @@ function DayCell({ date, inMonth, posts, onOpen, onCreate, isAdmin, canCreate, t
 function Agenda({ weeks, month, mode, byDate, onOpen, onCreate, canCreate, weekdayPillars }) {
   const today = todayISO();
   const days = weeks.flat().filter((d) => mode === 'week' || d.startsWith(month));
-  const shown = days.filter((d) => byDate[d]?.length || d === today);
+  // people who can add posts see every date (empty ones as a slim row to tap); others only days with posts
+  const shown = canCreate ? days : days.filter((d) => byDate[d]?.length || d === today);
   if (!shown.length)
     return (
       <div className="card px-4 py-8 text-center text-sm text-slate-500">
@@ -122,9 +135,24 @@ function Agenda({ weeks, month, mode, byDate, onOpen, onCreate, canCreate, weekd
       </div>
     );
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {shown.map((d) => {
         const list = byDate[d] || [];
+        if (!list.length && canCreate && d !== today)
+          return (
+            <button
+              key={d}
+              type="button"
+              onClick={() => onCreate({ date: d, pillarId: weekdayPillars[weekday(d)]?.id })}
+              className="flex w-full cursor-pointer items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-white/60 px-3 py-2 text-left text-sm text-slate-500 hover:border-brand-200 hover:bg-brand-50"
+            >
+              <span className="w-16 shrink-0 font-medium text-slate-600">{WEEKDAYS[weekday(d)].slice(0, 3)}, {Number(d.slice(8))}</span>
+              {PH_HOLIDAYS[d] && <span className="truncate rounded bg-rose-50 px-1.5 text-[10px] font-medium text-rose-700">{PH_HOLIDAYS[d]}</span>}
+              <span className="ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-dashed border-brand-200 bg-brand-50/70 text-brand-600">
+                <Plus className="h-4 w-4" />
+              </span>
+            </button>
+          );
         return (
           <section key={d} className="card overflow-hidden">
             <header className={`flex items-center gap-2 border-b border-slate-100 px-3 py-2 ${d === today ? 'bg-brand-50' : ''}`}>
@@ -252,7 +280,7 @@ export default function CalendarView({ client, posts, ideas, month, day, isAdmin
       </div>
       {canCreate && (
         <p className="mt-2 text-xs text-slate-500">
-          {isAdmin ? 'Tip: drag a post to another day to reschedule. ' : ''}Use + on a day (or double-click it) to add a post.
+          {isAdmin ? 'Tip: drag a post to another day to reschedule. ' : ''}Click a day (or its +) to add a post on that date.
         </p>
       )}
       </div>

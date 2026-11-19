@@ -5,6 +5,7 @@ import { FEEDBACK, PLACEMENT, PLACEMENTS, STATUS, STATUSES } from '../../lib/con
 import { formatDate, monthBounds, todayISO } from '../../lib/dates';
 import { downloadCSV, toCSV } from '../../lib/csv';
 import { EmptyState, PillarDot, PillarTag, PlatformList, StatusBadge } from '../../components/ui';
+import { InAppLink } from '../../components/DriveViewer';
 import { useAuth } from '../../context/AuthContext';
 import { useStatusChange } from '../../components/StatusChange';
 import { REVIEW_STATUSES, statusBlock } from '../../lib/workflow';
@@ -649,9 +650,9 @@ export default function SheetView({ client, posts, month, isAdmin, onOpen, peopl
                   )}
                   <td className="px-2 py-2 text-[13px]">
                     {p.pubmatLinks?.filter((l) => /^https?:/.test(l)).map((l, i) => (
-                      <a key={l} href={l} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-brand-600 hover:underline">
+                      <InAppLink key={l} href={l} title={`${p.title} · Pubmat${p.pubmatLinks.length > 1 ? ` ${i + 1}` : ''}`} className="flex items-center gap-1 text-brand-600 hover:underline">
                         <ExternalLink className="h-3.5 w-3.5" /> Pubmat{p.pubmatLinks.length > 1 ? ` ${i + 1}` : ''}
-                      </a>
+                      </InAppLink>
                     ))}
                     {!p.pubmatLinks?.some((l) => /^https?:/.test(l)) && <span className="break-words text-slate-500">{p.pubmatLinks?.[0] || '—'}</span>}
                   </td>

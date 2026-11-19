@@ -23,6 +23,7 @@ const fmtSize = (n) => (!n ? '—' : n < 1024 * 1024 ? `${Math.max(1, Math.round
 const fmtDate = (s) => (s ? new Date(s).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—');
 const thumb = (f, w = 400) => f.thumbnail?.replace(/=s\d+$/, `=w${w}`) || `https://drive.google.com/thumbnail?id=${f.id}&sz=w${w}`;
 
+const NO_PICKS = new Map();
 const VIEW_KEY = 'cc.driveView';
 const readView = () => {
   try {
@@ -37,7 +38,7 @@ const readView = () => {
  * and tick files to add. `picked` is a Map of url → file; onToggle(file) ticks/unticks one.
  * Falls back to Google's own folder view when the server has no Google key (onFallback is then called).
  */
-export default function DriveBrowser({ client, root, picked, onToggle }) {
+export default function DriveBrowser({ client, root, picked = NO_PICKS, onToggle = () => {}, readOnly = false, tall = false }) {
   const [path, setPath] = useState([{ id: root.id, name: root.title }]); // breadcrumb of opened folders
   const [view, setView] = useState(readView);
   const [q, setQ] = useState('');
@@ -88,7 +89,7 @@ export default function DriveBrowser({ client, root, picked, onToggle }) {
         <ViewToggle view={view} onView={changeView} />
       </div>
 
-      <div className="max-h-[52vh] min-h-[200px] overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/60 p-2">
+      <div className={`${tall ? 'max-h-[calc(100vh-190px)]' : 'max-h-[52vh]'} min-h-[200px] overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/60 p-2`}>
         {isLoading ? (
           <div className="flex justify-center py-12"><Spinner /></div>
         ) : error ? (
@@ -119,7 +120,7 @@ export default function DriveBrowser({ client, root, picked, onToggle }) {
               <div>
                 <div className="mb-1.5 px-1 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Files</div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                  {items.map((f) => <GridCard key={f.id} f={f} on={picked.has(f.url)} onToggle={() => onToggle(f)} onPreview={() => setPreview(f)} />)}
+                  {items.map((f) => <GridCard key={f.id} f={f} on={picked.has(f.url)} onToggle={() => onToggle(f)} onPreview={() => setPreview(f)} readOnly={readOnly} />)}
                 </div>
               </div>
             )}
@@ -142,7 +143,7 @@ export default function DriveBrowser({ client, root, picked, onToggle }) {
                 return (
                   <tr key={f.id} className={`hover:bg-slate-50 ${on ? 'bg-brand-50/60' : ''}`}>
                     <td className="px-2 py-1.5 text-center">
-                      {!f.isFolder && <input type="checkbox" className="h-4 w-4 accent-[#921259]" checked={on} onChange={() => onToggle(f)} aria-label={`Select ${f.name}`} />}
+                      {!f.isFolder && !readOnly && <input type="checkbox" className="h-4 w-4 accent-[#921259]" checked={on} onChange={() => onToggle(f)} aria-label={`Select ${f.name}`} />}
                     </td>
                     <td className="px-2 py-1.5">
                       <button className="flex max-w-full cursor-pointer items-center gap-2 text-left" onClick={() => (f.isFolder ? openFolder(f) : setPreview(f))}>
@@ -162,7 +163,7 @@ export default function DriveBrowser({ client, root, picked, onToggle }) {
       </div>
       {data?.nextPageToken && <p className="text-xs text-slate-500">Showing the first 200 items. Use search, or open a subfolder, to find others.</p>}
 
-      {preview && <Preview f={preview} on={picked.has(preview.url)} onToggle={() => onToggle(preview)} onClose={() => setPreview(null)} />}
+      {preview && <Preview f={preview} on={picked.has(preview.url)} onToggle={() => onToggle(preview)} onClose={() => setPreview(null)} readOnly={readOnly} />}
     </div>
   );
 }
@@ -179,7 +180,7 @@ function ViewToggle({ view, onView }) {
   );
 }
 
-function GridCard({ f, on, onToggle, onPreview }) {
+function GridCard({ f, on, onToggle, onPreview, readOnly }) {
   const [broken, setBroken] = useState(false);
   const k = fileKind(f.mimeType);
   return (
@@ -197,30 +198,32 @@ function GridCard({ f, on, onToggle, onPreview }) {
           <span className="truncate text-xs font-medium text-slate-700">{f.name}</span>
         </div>
       </button>
-      <button
+      {!readOnly && <button
         onClick={onToggle}
         aria-label={on ? `Unselect ${f.name}` : `Select ${f.name}`}
         className={`absolute top-1.5 left-1.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border-2 shadow-sm ${on ? 'border-brand-600 bg-brand-600 text-white' : 'border-white bg-white/80 text-transparent opacity-0 group-hover:opacity-100 hover:text-slate-400'}`}
       >
         <Check className="h-3.5 w-3.5" />
-      </button>
+      </button>}
     </div>
   );
 }
 
 // Big preview of one file, using Drive's own viewer (images, videos, PDFs, Docs, Sheets, Slides)
-function Preview({ f, on, onToggle, onClose }) {
+function Preview({ f, on, onToggle, onClose, readOnly }) {
   const k = fileKind(f.mimeType);
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/70 p-4" onMouseDown={onClose}>
-      <div className="card flex h-[85vh] w-full max-w-4xl flex-col overflow-hidden" onMouseDown={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/70 p-2 backdrop-blur-sm sm:p-4" onMouseDown={onClose}>
+      <div className="card flex h-full max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden" onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-2.5">
           <k.icon className={`h-4 w-4 shrink-0 ${k.cls}`} />
           <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-800">{f.name}</span>
-          <a href={f.url} target="_blank" rel="noreferrer" className="btn-ghost px-2 py-1 text-xs"><ExternalLink className="h-3.5 w-3.5" /> Open in Drive</a>
-          <button className={on ? 'btn-secondary px-2.5 py-1 text-xs' : 'btn-primary px-2.5 py-1 text-xs'} onClick={onToggle}>
-            <Check className="h-3.5 w-3.5" /> {on ? 'Selected' : 'Select'}
-          </button>
+          <a href={f.url} target="_blank" rel="noreferrer" className="btn-ghost px-2 py-1 text-xs" title="Open in Google Drive"><ExternalLink className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Open in Drive</span></a>
+          {!readOnly && (
+            <button className={on ? 'btn-secondary px-2.5 py-1 text-xs' : 'btn-primary px-2.5 py-1 text-xs'} onClick={onToggle}>
+              <Check className="h-3.5 w-3.5" /> {on ? 'Selected' : 'Select'}
+            </button>
+          )}
           <button className="btn-ghost p-1" onClick={onClose} aria-label="Close preview"><X className="h-4 w-4" /></button>
         </div>
         <iframe src={`https://drive.google.com/file/d/${f.id}/preview`} title={f.name} allow="autoplay" className="w-full flex-1 border-0 bg-slate-100" />

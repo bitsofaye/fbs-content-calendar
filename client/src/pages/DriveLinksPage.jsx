@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Check, ExternalLink, FileText, FolderOpen, Globe, Link2, Palette, Pencil, PlayCircle, Plus, Trash2, X } from 'lucide-react';
+import { Check, ExternalLink, FileText, FolderOpen, Globe, Link2, Maximize2, Palette, Pencil, PlayCircle, Plus, Trash2, X } from 'lucide-react';
+import { InAppLink } from '../components/DriveViewer';
 import { useAuth } from '../context/AuthContext';
 import { useAdminMutation, useClient, useDriveLinks } from '../api/hooks';
 import { api } from '../lib/api';
-import { driveInfo } from '../lib/drive';
+import { driveInfo, opensInApp } from '../lib/drive';
 import { EmptyState, FullPageSpinner, Spinner } from '../components/ui';
 
 const isLink = (s) => /^https?:\/\/\S+$/i.test(String(s || '').trim());
@@ -108,10 +109,11 @@ function LinkCard({ link, canChange, text }) {
         <info.icon className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1">
-        <a href={link.url} target="_blank" rel="noreferrer" className="inline-flex max-w-full items-center gap-1.5 text-base font-semibold break-words text-brand-700 hover:underline">
+        {/* Drive / Google Docs links open inside the app; other websites in a new tab */}
+        <InAppLink href={link.url} title={link.title} clientId={link.clientId} className="inline-flex max-w-full items-center gap-1.5 text-base font-semibold break-words text-brand-700 hover:underline">
           <span className="min-w-0">{link.title}</span>
-          <ExternalLink className="h-4 w-4 shrink-0 opacity-60" />
-        </a>
+          {opensInApp(link.url) ? <Maximize2 className="h-4 w-4 shrink-0 opacity-60" /> : <ExternalLink className="h-4 w-4 shrink-0 opacity-60" />}
+        </InAppLink>
         <p className="mt-0.5 truncate text-xs text-slate-500">{info.label}</p>
         {by && (
           <p className="mt-0.5 text-[11px] text-slate-500">

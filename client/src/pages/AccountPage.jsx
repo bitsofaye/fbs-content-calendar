@@ -25,14 +25,14 @@ export default function AccountPage() {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   return (
-    <div className="mx-auto max-w-lg p-6">
+    <div className="mx-auto max-w-lg p-4 sm:p-6">
       <h1 className="page-title mb-5">My account</h1>
       <div className="card mb-6 p-5 text-sm">
-        <div className="grid grid-cols-[100px_1fr] gap-y-2">
+        <div className="grid grid-cols-[80px_minmax(0,1fr)] gap-y-2 sm:grid-cols-[100px_minmax(0,1fr)]">
           <span className="text-slate-500">Name</span>
-          <span>{user.name}</span>
+          <span className="break-words">{user.name}</span>
           <span className="text-slate-500">Email</span>
-          <span>{user.email}</span>
+          <span className="break-all">{user.email}</span>
           <span className="text-slate-500">Role</span>
           <span>{user.role === 'ADMIN' ? 'Admin' : `Client · ${user.client?.name ?? ''}`}</span>
         </div>

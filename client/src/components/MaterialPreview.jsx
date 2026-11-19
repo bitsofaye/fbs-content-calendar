@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { ExternalLink, FileText, Folder, ImageOff, Link2, PlayCircle } from 'lucide-react';
+import { ExternalLink, FileText, Folder, ImageOff, Link2, Maximize2, PlayCircle } from 'lucide-react';
+import { openInApp, opensInApp } from '../lib/drive';
+import { InAppLink } from './DriveViewer';
 
 // Turns a pubmat / reference link into something you can look at:
 //   pictures and videos (direct files), Google Drive & Docs files, Canva designs, YouTube.
@@ -63,20 +65,31 @@ function Frame({ item, i, total }) {
       <div className="flex items-center gap-3 bg-slate-50 px-4 py-5">
         <Icon className="h-6 w-6 shrink-0 text-slate-400" />
         <p className="min-w-0 text-xs text-slate-500">
-          {failed ? 'No preview: the file may not be shared with “Anyone with the link”. Open it to view.' : 'No preview for this kind of link. Open it to view.'}
+          {failed
+            ? 'No preview: the file may not be shared with “Anyone with the link”. Open it to view.'
+            : opensInApp(item.url)
+              ? 'Click to view it here in the app.'
+              : 'No preview for this kind of link. Open it to view.'}
         </p>
       </div>
     );
   }
 
+  const inApp = opensInApp(item.url); // Drive / Google Docs: viewed inside the app
   return (
     <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      {body}
+      {inApp ? (
+        <button type="button" className="block w-full cursor-zoom-in" title="View in the app" onClick={() => openInApp(item.url, { title: name })}>
+          {body}
+        </button>
+      ) : (
+        body
+      )}
       <figcaption className="flex items-center gap-2 border-t border-slate-100 px-3 py-2 text-xs">
         <span className="font-medium text-slate-700">{name}</span>
-        <a href={item.url} target="_blank" rel="noreferrer" className="ml-auto inline-flex min-w-0 items-center gap-1 text-brand-600 hover:underline">
-          <span className="truncate">Open</span> <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-        </a>
+        <InAppLink href={item.url} title={name} className="ml-auto inline-flex min-w-0 items-center gap-1 text-brand-600 hover:underline">
+          <span className="truncate">{inApp ? 'View' : 'Open'}</span> {inApp ? <Maximize2 className="h-3.5 w-3.5 shrink-0" /> : <ExternalLink className="h-3.5 w-3.5 shrink-0" />}
+        </InAppLink>
       </figcaption>
     </figure>
   );

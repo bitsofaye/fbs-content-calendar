@@ -8,6 +8,7 @@ import { PLACEMENT, STATUS } from '../../lib/constants';
 import { addDays, formatDate, todayISO, weekday, weekOf } from '../../lib/dates';
 import { PH_HOLIDAYS } from '../../lib/holidays';
 import { ClientMark, EmptyState, PillarDot, PlatformList, StatusBadge } from '../../components/ui';
+import { InAppLink } from '../../components/DriveViewer';
 import { textOn } from '../../lib/theme';
 
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -121,9 +122,9 @@ function PostPreview({ post, client, isAdmin, onOpen }) {
           {links.length > 0 && (
             <div className="flex flex-wrap gap-2 border-t border-slate-100 px-3.5 py-2.5">
               {links.map((l, i) => (
-                <a key={l} href={l} target="_blank" rel="noreferrer" className="btn-secondary px-2.5 py-1 text-xs">
+                <InAppLink key={l} href={l} title={`${post.title} · Pubmat${links.length > 1 ? ` ${i + 1}` : ''}`} className="btn-secondary px-2.5 py-1 text-xs">
                   <ExternalLink className="h-3.5 w-3.5" /> Pubmat{links.length > 1 ? ` ${i + 1}` : ''}
-                </a>
+                </InAppLink>
               ))}
             </div>
           )}

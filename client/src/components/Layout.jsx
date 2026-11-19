@@ -9,6 +9,7 @@ import { useClients, useNotifications, useOverview, usePosts } from '../api/hook
 import { CALENDAR_PAGES, calendarPagePath, openClientSwitcher, usePins } from '../lib/pins';
 import { HOME_SLUG, useWorkspace } from '../lib/workspace';
 import ClientSwitcher from './ClientSwitcher';
+import { DriveViewerHost } from './DriveViewer';
 import { ClientMark } from './ui';
 import { textOn, useBrandTheme } from '../lib/theme';
 import { useTheme } from '../lib/darkMode';
@@ -711,6 +712,7 @@ export default function Layout() {
         <Outlet key={location.pathname} />
       </main>
       {isAdmin && <ClientSwitcher open={switcher} onClose={() => setSwitcher(false)} />}
+      <DriveViewerHost />
     </div>
   );
 }

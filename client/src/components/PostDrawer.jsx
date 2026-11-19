@@ -9,6 +9,7 @@ import { formatDate, formatDateTime } from '../lib/dates';
 import { PillarTag, PlacementChips, Spinner, StatusBadge } from './ui';
 import MaterialPreview from './MaterialPreview';
 import DrivePicker from './DrivePicker';
+import { InAppLink } from './DriveViewer';
 import { useStatusChange } from './StatusChange';
 import { canReviewPost, REVIEW_STATUSES, statusBlock } from '../lib/workflow';
 
@@ -84,10 +85,10 @@ function Links({ links }) {
       {links.map((l) => (
         <li key={l} className="truncate text-sm">
           {/^https?:\/\//.test(l) ? (
-            <a href={l} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-600 hover:underline">
+            <InAppLink href={l} className="inline-flex items-center gap-1 text-brand-600 hover:underline">
               <ExternalLink className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{l.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60)}</span>
-            </a>
+            </InAppLink>
           ) : (
             <span className="text-slate-700">{l}</span>
           )}
@@ -387,10 +388,11 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated, 
   ];
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end">
-      <div className="absolute inset-0 bg-slate-900/30" onClick={requestClose} />
-      <aside className="relative flex h-full w-full max-w-xl flex-col bg-white shadow-2xl">
-        <header className="flex items-start gap-3 border-b border-slate-200 px-5 py-4">
+    // a full-screen pop-up over the page; the page behind is blurred (a thin blurred edge shows on larger screens)
+    <div className="fixed inset-0 z-40 flex items-stretch justify-center sm:p-4 lg:p-6" role="dialog" aria-modal="true" aria-label={isNew ? 'New post' : form.title || 'Post'}>
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={requestClose} />
+      <aside className="relative flex h-full w-full flex-col overflow-hidden bg-white shadow-2xl sm:rounded-2xl">
+        <header className="flex items-start gap-3 border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
               <span className="h-2 w-2 rounded-full" style={{ background: client.brandColor }} />
@@ -434,26 +436,27 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated, 
           }
         />
 
-        <nav className="flex gap-1 border-b border-slate-200 px-4">
+        <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-200 px-3 sm:px-5">
           {tabs.map(([id, label]) => (
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`-mb-px cursor-pointer border-b-2 px-3 py-2 text-sm ${tab === id ? 'border-brand-600 font-medium text-brand-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              className={`-mb-px shrink-0 cursor-pointer border-b-2 px-3 py-2 text-sm whitespace-nowrap ${tab === id ? 'border-brand-600 font-medium text-brand-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
             >
               {label}
             </button>
           ))}
         </nav>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+          <div className="mx-auto w-full max-w-6xl">
           {!isNew && isLoading ? (
             <div className="flex justify-center py-10"><Spinner /></div>
           ) : (
             <>
               {tab === 'details' && (
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Topic / title *" className="col-span-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Field label="Topic / title *" className="sm:col-span-2 lg:col-span-4">
                     {readOnly ? <ReadValue value={form.title} /> : <input className="input" value={form.title} onChange={set('title')} placeholder="e.g. Free Business Compliance Checklist" autoFocus={isNew} />}
                   </Field>
                   <Field label="Date (empty = Idea bank)">
@@ -484,7 +487,7 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated, 
                       </select>
                     )}
                   </Field>
-                  <Field label="Platforms" className="col-span-2">
+                  <Field label="Platforms" className="sm:col-span-2 lg:col-span-4">
                     {readOnly ? (
                       <PlacementChips placements={form.placements} />
                     ) : (
@@ -559,13 +562,15 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated, 
                     )}
                   </Field>
                   )}
-                  <Field label="Remarks / reviewer notes" className="col-span-2">
+                  <Field label="Remarks / reviewer notes" className="sm:col-span-2 lg:col-span-4">
                     {readOnly ? <ReadValue value={form.remarks} pre /> : <textarea className="input" rows={3} value={form.remarks || ''} onChange={set('remarks')} />}
                   </Field>
                 </div>
               )}
 
               {tab === 'content' && (
+                // wide screens: the writing on the left, the materials and their previews on the right
+                <div className="grid gap-x-8 gap-y-3 lg:grid-cols-2">
                 <div className="space-y-3">
                   <Field label="Content story board">
                     {readOnly ? <ReadValue value={form.storyboard} pre /> : <textarea className="input" rows={4} value={form.storyboard || ''} onChange={set('storyboard')} placeholder="Hook, flow of the graphic / video, key points…" />}
@@ -582,6 +587,8 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated, 
                   <Field label="Hashtags">
                     {readOnly ? <ReadValue value={form.hashtags} /> : <input className="input" value={form.hashtags || ''} onChange={set('hashtags')} placeholder="#FrontlineBusinessSolutions #…" />}
                   </Field>
+                </div>
+                <div className="min-w-0 space-y-3">
                   <div>
                     <div className="mb-1 flex items-center justify-between gap-2">
                       <span className="label mb-0">Pubmat links (one per line)</span>
@@ -600,6 +607,7 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated, 
                   </Field>
                   <MaterialPreview links={form.referenceLink ? [form.referenceLink] : []} title="Preview of the reference" />
                 </div>
+                </div>
               )}
 
               {tab === 'ad' && (
@@ -607,7 +615,7 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated, 
                   <Field label="Primary text">
                     {readOnly ? <ReadValue value={form.ad.primaryText} pre /> : <textarea className="input" rows={5} value={form.ad.primaryText || ''} onChange={setAd('primaryText')} />}
                   </Field>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <Field label="Headline">{readOnly ? <ReadValue value={form.ad.headline} /> : <input className="input" value={form.ad.headline || ''} onChange={setAd('headline')} />}</Field>
                     <Field label="Call to action">{readOnly ? <ReadValue value={form.ad.cta} /> : <input className="input" value={form.ad.cta || ''} onChange={setAd('cta')} placeholder="Send Message" />}</Field>
                   </div>
@@ -666,13 +674,13 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated, 
               {tab === 'metrics' && (
                 <div>
                   <p className="mb-3 text-xs text-slate-500">Fill these in after the post goes live (from Meta Business Suite insights).</p>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {[['reacts', 'Reacts'], ['comments', 'Comments'], ['shares', 'Shares'], ['reach', 'Reach'], ['engagement', 'Engagement'], ['linkClicks', 'Link clicks']].map(([k, label]) => (
                       <Field key={k} label={label}>
                         {readOnly ? <ReadValue value={form[k] === '' ? null : Number(form[k]).toLocaleString()} /> : <input type="number" min="0" className="input" value={form[k]} onChange={set(k)} />}
                       </Field>
                     ))}
-                    <Field label="Feedback" className="col-span-3">
+                    <Field label="Feedback" className="col-span-2 sm:col-span-3">
                       {readOnly ? (
                         <ReadValue value={FEEDBACK.find((f) => f.value === form.feedback)?.label} />
                       ) : (
@@ -686,13 +694,14 @@ export default function PostDrawer({ client, postId, draft, onClose, onCreated, 
                 </div>
               )}
 
-              {tab === 'discussion' && post && <Discussion post={post} people={people} me={user.id} />}
+              {tab === 'discussion' && post && <div className="max-w-3xl"><Discussion post={post} people={people} me={user.id} /></div>}
             </>
           )}
+          </div>
         </div>
 
         {canEdit && (
-          <footer className="flex flex-wrap items-center gap-2 border-t border-slate-200 px-5 py-3">
+          <footer className="flex flex-wrap items-center gap-2 border-t border-slate-200 px-4 py-3 sm:px-6">
             {!isNew && (
               <>
                 <button

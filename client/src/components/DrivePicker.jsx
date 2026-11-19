@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, FileText, FolderOpen, Link2, Plus } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Eye, FileText, FolderOpen, Link2, Plus } from 'lucide-react';
 import { useDriveLinks } from '../api/hooks';
-import { driveInfo, isHttps } from '../lib/drive';
+import { driveInfo, isHttps, opensInApp } from '../lib/drive';
+import { InAppLink } from './DriveViewer';
 import DriveBrowser from './DriveBrowser';
 import { Modal, Spinner } from './ui';
 
@@ -155,7 +156,9 @@ export default function DrivePicker({ open, onClose, client, isAdmin, onAdd }) {
                       <FolderOpen className="h-3.5 w-3.5" /> Browse
                     </button>
                   )}
-                  <a href={l.url} target="_blank" rel="noreferrer" className="btn-ghost p-1.5" title="Open in Drive"><ExternalLink className="h-4 w-4" /></a>
+                  <InAppLink href={l.url} title={l.title} clientId={client.id} className="btn-ghost p-1.5" aria-label={`View ${l.title}`}>
+                    {opensInApp(l.url) ? <Eye className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}
+                  </InAppLink>
                 </li>
               );
             })}

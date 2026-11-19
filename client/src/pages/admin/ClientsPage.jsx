@@ -1,13 +1,90 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Archive, ArchiveRestore, ExternalLink, Pencil, Plus, RotateCcw, Search, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, ExternalLink, Image as ImageIcon, Pencil, Plus, RotateCcw, Search, Trash2, Upload } from 'lucide-react';
 import { useAdminMutation, useClients, useClientTrash } from '../../api/hooks';
 import { api } from '../../lib/api';
 import { ClientMark, FullPageSpinner, Modal, Spinner } from '../../components/ui';
 import { formatDate } from '../../lib/dates';
 
-const blank = { name: '', slug: '', brandColor: '#921259', secondaryColor: '', industry: '', logoUrl: '', withDefaultPillars: true };
+const blank = { name: '', slug: '', brandColor: '#921259', secondaryColor: '', industry: '', logoUrl: '' };
 const HEX = /^#[0-9a-f]{6}$/i;
+
+// Shrinks an uploaded logo to a small square-ish image (longest side `max` px), keeping transparency
+function shrinkLogo(file, max = 256) {
+  return new Promise((resolve, reject) => {
+    if (!/^image\/(png|jpeg|webp|gif|svg\+xml)$/.test(file.type)) return reject(new Error('Pick a PNG, JPG, WebP, GIF or SVG image'));
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, max / Math.max(img.naturalWidth || max, img.naturalHeight || max));
+      const w = Math.max(1, Math.round((img.naturalWidth || max) * scale));
+      const h = Math.max(1, Math.round((img.naturalHeight || max) * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      let data = canvas.toDataURL('image/webp', 0.9);
+      if (!data.startsWith('data:image/webp')) data = canvas.toDataURL('image/png'); // browsers without WebP export
+      resolve(data);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('That file could not be read as an image'));
+    };
+    img.src = url;
+  });
+}
+
+// Logo: upload an image from the computer, or paste a link to one
+function LogoField({ value, onChange }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const uploaded = value?.startsWith('data:');
+  const pick = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setBusy(true);
+    setError('');
+    try {
+      onChange(await shrinkLogo(file));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="sm:col-span-2">
+      <label className="label">Logo</label>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#fff] ring-1 ring-slate-200">
+          {value ? <img src={value} alt="Logo preview" className="h-full w-full object-contain" /> : <ImageIcon className="h-6 w-6 text-slate-300" />}
+        </span>
+        <label className={`btn-secondary cursor-pointer ${busy ? 'pointer-events-none opacity-60' : ''}`}>
+          <Upload className="h-4 w-4" /> {busy ? 'Preparing…' : value ? 'Change logo' : 'Upload logo'}
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" className="sr-only" onChange={pick} />
+        </label>
+        {value && (
+          <button type="button" className="btn-ghost px-2 text-xs text-red-600" onClick={() => onChange('')}>
+            Remove
+          </button>
+        )}
+        <input
+          className="input min-w-[180px] flex-1"
+          value={uploaded ? '' : value || ''}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={uploaded ? 'Uploaded image (or paste a link instead)' : '…or paste a logo link https://…'}
+          aria-label="Logo link"
+        />
+      </div>
+      <p className={`mt-1 text-xs ${error ? 'text-red-600' : 'text-slate-500'}`}>
+        {error || 'PNG with a transparent background looks best. It is shrunk to a small image automatically.'}
+      </p>
+    </div>
+  );
+}
 
 function ClientForm({ initial, onClose }) {
   const [f, setF] = useState(initial || blank);
@@ -22,7 +99,6 @@ function ClientForm({ initial, onClose }) {
     e.preventDefault();
     const body = { name: f.name, brandColor: f.brandColor, secondaryColor: f.secondaryColor || '', industry: f.industry || null, logoUrl: f.logoUrl || '' };
     if (f.slug) body.slug = f.slug;
-    if (isNew) body.withDefaultPillars = f.withDefaultPillars;
     await save.mutateAsync(body);
     onClose();
   };
@@ -38,8 +114,8 @@ function ClientForm({ initial, onClose }) {
         </>
       }
     >
-      <form id="client-form" onSubmit={submit} className="grid grid-cols-2 gap-3">
-        <div className="col-span-2">
+      <form id="client-form" onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="sm:col-span-2">
           <label className="label">Client name *</label>
           <input className="input" value={f.name} onChange={set('name')} required autoFocus />
         </div>
@@ -71,7 +147,7 @@ function ClientForm({ initial, onClose }) {
             )}
           </div>
         </div>
-        <div className="col-span-2 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+        <div className="flex items-center gap-3 rounded-lg sm:col-span-2 border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
           <span className="flex h-6 w-16 shrink-0 overflow-hidden rounded-md ring-1 ring-slate-200">
             <span className="flex-1" style={{ background: HEX.test(f.brandColor) ? f.brandColor : '#cbd5e1' }} />
             <span className="flex-1" style={{ background: HEX.test(f.secondaryColor || '') ? f.secondaryColor : HEX.test(f.brandColor) ? f.brandColor : '#cbd5e1' }} />
@@ -82,16 +158,8 @@ function ClientForm({ initial, onClose }) {
           <label className="label">Industry</label>
           <input className="input" value={f.industry || ''} onChange={set('industry')} placeholder="e.g. Resort, Restaurant" />
         </div>
-        <div>
-          <label className="label">Logo URL</label>
-          <input className="input" value={f.logoUrl || ''} onChange={set('logoUrl')} placeholder="https://…" />
-        </div>
-        {isNew && (
-          <label className="col-span-2 flex items-center gap-2 text-sm text-slate-600">
-            <input type="checkbox" checked={f.withDefaultPillars} onChange={set('withDefaultPillars')} />
-            Start with default pillars (Promotional, Educational, Engagement, Testimonials, Announcements, Holiday)
-          </label>
-        )}
+        <LogoField value={f.logoUrl} onChange={(v) => setF((x) => ({ ...x, logoUrl: v }))} />
+        {isNew && <p className="text-xs sm:col-span-2 text-slate-500">The new client starts with no pillars. Add theirs in Pillars &amp; themes.</p>}
       </form>
     </Modal>
   );
@@ -195,9 +263,9 @@ export default function ClientsPage() {
     <div className="space-y-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="page-title">Clients</h1>
-        <div className="relative">
+        <div className="relative min-w-0 flex-1 sm:flex-none">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-slate-500" />
-          <input className="input w-56 pl-8" placeholder="Search clients…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="input w-full pl-8 sm:w-56" placeholder="Search clients…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <label className="ml-auto flex items-center gap-1.5 text-sm text-slate-600">
           <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Show archived
@@ -224,10 +292,10 @@ export default function ClientsPage() {
           <thead className="bg-slate-50 text-left text-xs text-slate-500 uppercase">
             <tr>
               <th className="px-4 py-2">Client</th>
-              <th className="px-4 py-2">Industry</th>
+              <th className="hidden px-4 py-2 md:table-cell">Industry</th>
               <th className="px-4 py-2 text-right">Posts</th>
-              <th className="px-4 py-2 text-right">Pillars</th>
-              <th className="px-4 py-2 text-right">Logins</th>
+              <th className="hidden px-4 py-2 text-right sm:table-cell">Pillars</th>
+              <th className="hidden px-4 py-2 text-right sm:table-cell">Logins</th>
               <th className="px-4 py-2" />
             </tr>
           </thead>
@@ -238,14 +306,14 @@ export default function ClientsPage() {
                   <div className="flex items-center gap-2">
                     <ClientMark client={c} />
                     <Link to={`/c/${c.slug}`} className="font-medium hover:text-brand-700 hover:underline">{c.name}</Link>
-                    <span className="text-xs text-slate-500">/{c.slug}</span>
+                    <span className="hidden text-xs text-slate-500 sm:inline">/{c.slug}</span>
                     {!c.active && <span className="rounded bg-slate-200 px-1.5 text-[10px]">archived</span>}
                   </div>
                 </td>
-                <td className="px-4 py-2.5 text-slate-600">{c.industry || '—'}</td>
+                <td className="hidden px-4 py-2.5 text-slate-600 md:table-cell">{c.industry || '—'}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{c._count.posts}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{c._count.pillars}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{c._count.users}</td>
+                <td className="hidden px-4 py-2.5 text-right tabular-nums sm:table-cell">{c._count.pillars}</td>
+                <td className="hidden px-4 py-2.5 text-right tabular-nums sm:table-cell">{c._count.users}</td>
                 <td className="px-4 py-2.5">
                   <div className="flex justify-end gap-1">
                     <Link to={`/c/${c.slug}`} className="btn-ghost px-2" title="Open calendar"><ExternalLink className="h-4 w-4" /></Link>
